@@ -18,7 +18,7 @@ fn main() {
     let items = {
         let mut f = pocket.filter();
         f.complete();
-        f.get()
+        pocket.get(&f)
     };
     println!("items: {:?}", items);
 }
