@@ -689,8 +689,7 @@ pub enum PocketSendAction {
         time: Option<u64>
     },
     TagDelete {
-        #[serde(serialize_with="to_string")]
-        tag: u64,
+        tag: String,
         #[serde(serialize_with="optional_to_string")]
         time: Option<u64>
     },
