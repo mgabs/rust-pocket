@@ -11,10 +11,10 @@ fn main() {
     );
 
     let item = pocket.add(
-        "http://example.com".into_url().unwrap(),
-        Some("Example"),
-        Some("one,two"),
-        None,
+        "https://example.com".into_url().unwrap(),
+        Some("Example title"),
+        Some("example-tag"),
+        Some("example_tweet_id"),
     ).unwrap();
     println!("item: {:?}", item);
 }
