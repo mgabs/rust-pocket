@@ -9,7 +9,7 @@ fn main() {
     println!("Follow auth URL to provide access and press enter when finished: {}", pocket.url());
     let _ = io::stdin().read_line(&mut String::new());
     let user = pocket.authorize().unwrap();
-    println!("username: {:?}", user);
+    println!("username: {:?}", user.username);
     println!("access token: {:?}", user.access_token);
 
     let pocket = user.pocket();
