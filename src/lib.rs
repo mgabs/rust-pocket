@@ -340,6 +340,7 @@ pub struct PocketUserRequest<'a, T> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PocketGetRequest<'a> {
     search: Option<&'a str>,
     domain: Option<&'a str>,
@@ -347,7 +348,6 @@ pub struct PocketGetRequest<'a> {
     tag: Option<PocketGetTag<'a>>,
     state: Option<PocketGetState>,
     content_type: Option<PocketGetType>,
-    #[serde(rename="detailType")]
     detail_type: Option<PocketGetDetail>,
     #[serde(serialize_with = "optional_bool_to_int")]
     favorite: Option<bool>,
@@ -1108,8 +1108,8 @@ mod test {
                         "domain": "{domain}",
                         "tag": "{tag}",
                         "state": "{state}",
-                        "content_type": "{content_type}",
-                        "detail_type": "{detail_type}",
+                        "contentType": "{content_type}",
+                        "detailType": "{detail_type}",
                         "favorite": "{favorite}",
                         "since": "{since}",
                         "sort": "{sort}",
