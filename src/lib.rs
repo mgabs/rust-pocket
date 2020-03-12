@@ -4,7 +4,7 @@ extern crate mime;
 extern crate chrono;
 extern crate hyper_native_tls;
 
-#[macro_use] extern crate serde_derive;
+extern crate serde_derive;
 extern crate serde;
 
 use hyper_native_tls::NativeTlsClient;
