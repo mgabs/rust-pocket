@@ -19,7 +19,7 @@ use std::convert::From;
 use std::io::Error as IoError;
 use std::io::Read;
 use std::result::Result;
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serializer, Serialize};
 use serde::de::{DeserializeOwned, Unexpected};
 use std::str::FromStr;
 use std::fmt::Display;
@@ -149,13 +149,6 @@ impl HeaderFormat for XErrorCode {
     fn fmt_header(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.0, fmt)
     }
-}
-
-pub struct Pocket {
-    consumer_key: String,
-    access_token: Option<String>,
-    code: Option<String>,
-    client: Client
 }
 
 #[derive(Serialize)]
@@ -702,21 +695,35 @@ pub struct PocketSendResponse {
     // TODO - action_errors []
 }
 
-impl Pocket {
-    pub fn new(consumer_key: &str, access_token: Option<&str>) -> Pocket {
+struct PocketClient {
+    client: Client,
+}
+
+impl PocketClient {
+    fn new() -> PocketClient {
         let ssl = NativeTlsClient::new().unwrap();
         let connector = HttpsConnector::new(ssl);
 
-        Pocket {
-            consumer_key: consumer_key.to_string(),
-            access_token: access_token.map(|v| v.to_string()),
-            code: None,
+        PocketClient {
             client: Client::with_connector(connector)
         }
     }
 
-    #[inline] pub fn access_token(&self) -> Option<&str> {
-        self.access_token.as_ref().map(|v| &**v)
+    fn get<T: IntoUrl, Resp: DeserializeOwned>(&self, url: T) -> PocketResult<Resp> {
+        let request = self.client.get(url);
+        self.request::<T, Resp>(request)
+    }
+
+    fn post<T: IntoUrl, B: Serialize, Resp: DeserializeOwned>(&self, url: T, body: &B) -> PocketResult<Resp> {
+        let app_json: Mime = "application/json".parse().unwrap();
+        let body =  serde_json::to_string(body)?;
+        let request = self.client
+            .post(url)
+            .body(&body)
+            .header(ContentType(app_json.clone()))
+            .header(XAccept(app_json));
+
+        self.request::<T, Resp>(request)
     }
 
     fn request<T: IntoUrl, Resp: DeserializeOwned>(&self, request: RequestBuilder) -> PocketResult<Resp> {
@@ -732,94 +739,149 @@ impl Pocket {
             })
             .and_then(|s| serde_json::from_str(&*s).map_err(From::from))
     }
+}
 
-    fn get_request<T: IntoUrl, Resp: DeserializeOwned>(&self, url: T) -> PocketResult<Resp> {
-        self.request::<T, Resp>(self.client.get(url))
-    }
+pub struct PocketAuthRequester {
+    consumer_key: String,
+    client: PocketClient,
+}
 
-    fn post_request<T: IntoUrl, Resp: DeserializeOwned>(&self, url: T, data: &str) -> PocketResult<Resp> {
-        let app_json: Mime = "application/json".parse().unwrap();
-
-        self.request::<T, Resp>(self.client
-            .post(url)
-            .body(data)
-            .header(ContentType(app_json.clone()))
-            .header(XAccept(app_json.clone()))
-        )
-    }
-
-    pub fn get_auth_url(&mut self) -> PocketResult<Url> {
-        let request = serde_json::to_string(&PocketOAuthRequest {
-            consumer_key: &*self.consumer_key,
-            redirect_uri: "rustapi:finishauth",
+impl PocketAuthRequester {
+    pub fn request(self, redirect_uri: &str) -> PocketResult<PocketAuthorizer> {
+        let body = &PocketOAuthRequest {
+            consumer_key: &self.consumer_key,
+            redirect_uri,
             state: None
-        })?;
+        };
 
-        self.post_request("https://getpocket.com/v3/oauth/request", &*request)
+        self.client.post("https://getpocket.com/v3/oauth/request", &body)
             .and_then(|r: PocketOAuthResponse| {
-                let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
-                url.query_pairs_mut().extend_pairs(vec![("request_token", &*r.code), ("redirect_uri", "rustapi:finishauth")].into_iter());
-                self.code = Some(r.code);
-                Ok(url)
+                let url = PocketAuthRequester::authorize_url(redirect_uri, &r.code);
+
+                Ok(PocketAuthorizer {
+                    url,
+                    consumer_key: self.consumer_key,
+                    code: r.code,
+                    client: self.client
+                })
             })
     }
 
-    pub fn authorize(&mut self) -> PocketResult<String> {
-        let request = serde_json::to_string(&PocketAuthorizeRequest {
-            consumer_key: &*self.consumer_key,
-            code: self.code.as_ref().map(|v| &**v).unwrap()
-        })?;
+    fn authorize_url(redirect_uri: &str, code: &str) -> Url {
+        let params = vec![("request_token", code), ("redirect_uri", redirect_uri)];
+        let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
+        url.query_pairs_mut().extend_pairs(params.into_iter());
+        url
+    }
+}
 
-        match self.post_request("https://getpocket.com/v3/oauth/authorize", &*request)
-        {
-            Ok(r @ PocketAuthorizeResponse {..}) => {
-                self.access_token = Some(r.access_token);
-                Ok(r.username)
-            },
-            Err(e) => Err(e)
+pub struct PocketAuthorizer {
+    url: Url,
+    code: String,
+    consumer_key: String,
+    client: PocketClient,
+}
+
+impl PocketAuthorizer {
+    pub fn authorize(self) -> PocketResult<PocketUser> {
+        let body = &PocketAuthorizeRequest {
+            consumer_key: &self.consumer_key,
+            code: &self.code
+        };
+
+        self.client.post("https://getpocket.com/v3/oauth/authorize", &body)
+            .map(|r: PocketAuthorizeResponse| {
+                PocketUser {
+                    consumer_key: self.consumer_key,
+                    access_token: r.access_token,
+                    username: r.username
+                }
+            })
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+}
+
+#[derive(Debug)]
+pub struct PocketUser {
+    pub consumer_key: String,
+    pub access_token: String,
+    pub username: String,
+}
+
+impl PocketUser {
+    pub fn pocket(self) -> Pocket {
+        Pocket::new(&self.consumer_key, &self.access_token)
+    }
+}
+
+pub struct Pocket {
+    consumer_key: String,
+    access_token: String,
+    client: PocketClient
+}
+
+impl Pocket {
+    pub fn new(consumer_key: &str, access_token: &str) -> Pocket {
+        Pocket {
+            consumer_key: consumer_key.to_string(),
+            access_token: access_token.to_string(),
+            client: PocketClient::new()
         }
     }
 
+    pub fn auth(consumer_key: &str) -> PocketAuthRequester {
+        PocketAuthRequester {
+            consumer_key: consumer_key.to_string(),
+            client: PocketClient::new()
+        }
+    }
+
+    #[inline] pub fn access_token(&self) -> &str {
+        &self.access_token
+    }
+
     pub fn add<T: IntoUrl>(&self, url: T, title: Option<&str>, tags: Option<&str>, tweet_id: Option<&str>) -> PocketResult<PocketAddedItem> {
-        let data = serde_json::to_string(&PocketUserRequest {
+        let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
-            access_token: &**self.access_token.as_ref().unwrap(),
+            access_token: &*self.access_token,
             request: &PocketAddRequest {
                 url: url.into_url().unwrap(),
                 title: title.map(|v| v.clone()),
                 tags: tags.map(|v| v.clone()),
                 tweet_id: tweet_id.map(|v| v.clone())
             }
-        })?;
+        };
 
-        self.post_request("https://getpocket.com/v3/add", &data)
+        self.client.post("https://getpocket.com/v3/add", &body)
             .map(|v: PocketAddResponse| v.item)
     }
 
     pub fn get(&self, request: &PocketGetRequest) -> PocketResult<Vec<PocketItem>> {
-        let data = serde_json::to_string(&PocketUserRequest {
+        let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
-            access_token: &**self.access_token.as_ref().unwrap(),
+            access_token: &*self.access_token,
             request
-        })?;
+        };
 
-        self.post_request("https://getpocket.com/v3/get", &data)
+        self.client.post("https://getpocket.com/v3/get", &body)
             .map(|v: PocketGetResponse| v.list)
     }
 
     pub fn send(&self, request: &PocketSendRequest) -> PocketResult<PocketSendResponse> {
         let data = serde_json::to_string(request.actions)?;
-
         let params = &[
             ("consumer_key", &*self.consumer_key),
-            ("access_token", &**self.access_token.as_ref().unwrap()),
+            ("access_token", &*self.access_token),
             ("actions", &data)
         ];
 
         let mut url = "https://getpocket.com/v3/send".into_url().unwrap();
         url.query_pairs_mut().extend_pairs(params.into_iter());
 
-        self.get_request(url)
+        self.client.get(url)
     }
 
     #[inline] pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
