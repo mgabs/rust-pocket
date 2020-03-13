@@ -822,7 +822,7 @@ impl Pocket {
         self.get_request(url)
     }
 
-    #[inline] pub fn push<T: IntoUrl>(&mut self, url: T) -> PocketResult<PocketAddedItem> {
+    #[inline] pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
         self.add(url, None, None, None)
     }
 
