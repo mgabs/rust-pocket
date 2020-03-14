@@ -1,4 +1,4 @@
-# rust-pocket <a href="https://travis-ci.org/kstep/rust-pocket"><img src="https://img.shields.io/travis/kstep/rust-pocket.png?style=flat-square" /></a> <a href="https://crates.io/crates/pocket"><img src="https://img.shields.io/crates/d/pocket.png?style=flat-square" /></a> <a href="https://crates.io/crates/pocket"><img src="https://img.shields.io/crates/v/pocket.png?style=flat-square" /></a>
+# rust-pocket
 
 [Pocket API](http://getpocket.com/developer/docs/overview) bindings
 (http://getpocket.com)
