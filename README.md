@@ -18,8 +18,8 @@ use pocket::Pocket;
 fn authenticate() {
   let mut pocket = Pocket::new("YOUR-CONSUMER-KEY-HERE", None);
   let url = pocket.get_auth_url().unwrap();
-  println!("Follow the link to authorize the app: {}", url);
-  // Here we should wait until user follows the URL and confirm app access
+  println!("Follow auth URL to provide access and press enter when finished: {}", url);
+  let _ = io::stdin().read_line(&mut String::new());
   
   let username = pocket.authorize().unwrap;
 }
@@ -38,38 +38,63 @@ let access_token = "YOUR-STORED-ACCESS-TOKEN";
 let mut pocket = Pocket::new("YOUR-CONSUMER-KEY-HERE", Some(access_token));
 ```
 
-Now you have two methods (for now) to get and add new URLs to your pocket.
+Now you have add, modify and retrieve items to and from your pocket.
 
-To add an item, use `Pocket::add()` or `Pocket::push()` method:
+To add an item, use the `Pocket::add()`, `Pocket::push()`, or `Pocket::send()` method:
 
 ```rust
 // Quick add by URL only
 let added_item = pocket.push("http://example.com").unwrap();
 
 // Add with all meta-info provided (title, tags, tweet id)
-let added_item = pocket.push("http://example.com", Some("Example title"), Some("example-tag"), Some("example_tweet_id")).unwrap();
+let added_item = pocket.push("https://example.com", Some("Example title"), Some("example-tag"), Some("example_tweet_id")).unwrap();
+
+// Add with one or more actions
+use hyper::client::IntoUrl;
+
+let added_item = pocket.send(&PocketSendRequest { 
+    actions: &[
+        &PocketSendAction::Add {
+            item_id: None,
+            ref_id: None,
+            tags: Some("example-tag".to_string()),
+            time: None,
+            title: Some("Example title".to_string()), 
+            url: Some("https://example.com".into_url().unwrap()), 
+        }
+    ]
+};
 ```
 
-To query your pocket, use `Pocket::filter()` method:
+To query your pocket, use `Pocket::filter()` and `Pocket::get()` methods:
 
 ```rust
 let items = {
     let mut f = pocket.filter();
-    
-    f.complete() // complete data
-    f.archived() // archived items only
-    f.videos()   // videos only
-    f.offset(10) // items 10-20
-    f.count(10)
-    f.sort_by_title() // sorted by title
-    f.get(); // get items
-};
+    f.complete(); // complete data
+    f.archived(); // archived items only
+    f.videos();   // videos only
+    f.offset(10); // items 10-20
+    f.count(10);
+    f.sort_by_title(); // sorted by title
+    // There are other methods, see `PocketGetRequest` struct for details
 
-// There are other methods, see `PocketGetRequest` struct for details
-...
+    pocket.get(&f); // get items
+};
 ```
 
-The API bindings will be improved with new methods and parameters. Keep tuned!
+To modify one or multiple items or tags at a time, use `Pocket::send()`
+
+```rust
+let item_id = 1583845180185;
+let results = pocket.send(&PocketSendRequest {
+    actions: &[
+        &PocketSendAction::Archive { item_id, time: None },
+        &PocketSendAction::TagsAdd { item_id, tags: "one,two".to_string(), time: None },
+        &PocketSendAction::TagRename { old_tag: "one".to_string(), new_tag: "1".to_string(), time: None },
+    ]
+})
+```
 
 ## License
 
