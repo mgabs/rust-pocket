@@ -5,7 +5,7 @@ use pocket::{Pocket, PocketGetRequest};
 fn main() {
     let pocket = Pocket::new(
         &std::env::var("POCKET_CONSUMER_KEY").unwrap(),
-        Some(&std::env::var("POCKET_ACCESS_TOKEN").unwrap()),
+        &std::env::var("POCKET_ACCESS_TOKEN").unwrap(),
     );
 
     let items = {

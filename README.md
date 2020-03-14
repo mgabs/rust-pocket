@@ -1,14 +1,19 @@
 # rust-pocket <a href="https://travis-ci.org/kstep/rust-pocket"><img src="https://img.shields.io/travis/kstep/rust-pocket.png?style=flat-square" /></a> <a href="https://crates.io/crates/pocket"><img src="https://img.shields.io/crates/d/pocket.png?style=flat-square" /></a> <a href="https://crates.io/crates/pocket"><img src="https://img.shields.io/crates/v/pocket.png?style=flat-square" /></a>
 
-[Pocket API](http://getpocket.com/developer/docs/overview) bindings (http://getpocket.com), WIP
+[Pocket API](http://getpocket.com/developer/docs/overview) bindings
+(http://getpocket.com)
 
 API is very easy, actually. The most complex code is for authorization.
-You will need a `consumer_key` and an `access_token` in order to use the API.
+You will need a consumer key and an access token in order to use the
+API.
 
-A `consumer_key` can be obtained by creating an app at the [My Applications](http://getpocket.com/developer/apps/) page.
-An `access_token` is obtained by walking through [OAuth authentication workflow](http://getpocket.com/developer/docs/authentication).
+A consumer_key can be obtained by creating an app at the
+[My Applications](http://getpocket.com/developer/apps/) page. An access
+token is obtained by walking through
+[OAuth authentication workflow](http://getpocket.com/developer/docs/authentication).
 
-The OAuth workflow is implemented with a pair of methods in this implementation:
+The OAuth workflow is implemented with a pair of methods in this
+implementation:
 
 ```rust
 extern crate pocket;
@@ -16,38 +21,49 @@ extern crate pocket;
 use pocket::Pocket;
 
 fn authenticate() {
-  let mut pocket = Pocket::new("YOUR-CONSUMER-KEY-HERE", None);
-  let url = pocket.get_auth_url().unwrap();
-  println!("Follow auth URL to provide access and press enter when finished: {}", url);
+  let auth_requester = Pocket::auth("YOUR-CONSUMER-KEY-HERE");
+  let authorizer = auth_requester.request("rustapi:finishauth").unwrap();
+  println!("Follow auth URL to provide access and press enter when finished: {}", authorizer.url());
   let _ = io::stdin().read_line(&mut String::new());
   
-  let username = pocket.authorize().unwrap;
+  let user = authorizer.authorize().unwrap;
 }
 ```
 
-So you 1) generate OAuth access request URL with `pocket.get_auth_url()`, 2) let user follow the URL
-and confirm app access,  3) call `pocket.authorize()` and either get an error,
-or username of user just authorized.
+So you
+1. Initiate auth with ` Pocket::auth()`
+2. Generate OAuth access request URL with `auth_requester.request()`,
+3. Let the user follow the URL and confirm app access
+4. Call `authorizer.authorize()` and either get an error, or the
+   username and access token of user just authorized.
 
-I recommend storing the access token after you get it, so you don't have to repeat this workflow again next time.
-The access token can be obtained with `pocket.access_token()` method. Store it somewhere and use to construct
-`Pocket` object:
+You can then convert that user into an `Pocket` instance if you choose
 
 ```rust
-let access_token = "YOUR-STORED-ACCESS-TOKEN";
-let mut pocket = Pocket::new("YOUR-CONSUMER-KEY-HERE", Some(access_token));
+let pocket = user.pocket();
 ```
 
-Now you have add, modify and retrieve items to and from your pocket.
+I recommend storing the access token after you get it, so you don't have
+to repeat this workflow again next time. The access token can be
+obtained via `user.access_token` field. Store it somewhere and use it to
+construct a `Pocket` instance:
 
-To add an item, use the `Pocket::add()`, `Pocket::push()`, or `Pocket::send()` method:
+```rust
+let pocket = Pocket::new("YOUR-CONSUMER-KEY-HERE", "YOUR-STORED-ACCESS-TOKEN");
+```
+
+A `Pocket` instance allows you to add, modify and retrieve items to and
+from your pocket.
+
+To add an item, use the `Pocket::add()`, `Pocket::push()`, or
+`Pocket::send()` method:
 
 ```rust
 // Quick add by URL only
 let added_item = pocket.push("http://example.com").unwrap();
 
 // Add with all meta-info provided (title, tags, tweet id)
-let added_item = pocket.push("https://example.com", Some("Example title"), Some("example-tag"), Some("example_tweet_id")).unwrap();
+let added_item = pocket.add("https://example.com", Some("Example title"), Some("example-tag"), Some("example_tweet_id")).unwrap();
 
 // Add with one or more actions
 use hyper::client::IntoUrl;
@@ -66,7 +82,8 @@ let added_item = pocket.send(&PocketSendRequest {
 };
 ```
 
-To query your pocket, use `Pocket::filter()` and `Pocket::get()` methods:
+To query your pocket, use `Pocket::filter()` and `Pocket::get()`
+methods:
 
 ```rust
 let items = {
@@ -100,8 +117,10 @@ let results = pocket.send(&PocketSendRequest {
 
 Licensed under either of
 
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+  http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or
+  http://opensource.org/licenses/MIT)
 
 at your option.
 
@@ -109,5 +128,5 @@ at your option.
 
 Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the Apache-2.0
-license, shall be dual licensed as above, without any additional terms or
-conditions.
+license, shall be dual licensed as above, without any additional terms
+or conditions.

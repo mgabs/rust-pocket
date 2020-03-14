@@ -4,14 +4,15 @@ use pocket::Pocket;
 use std::io;
 
 fn main() {
-    let mut pocket = Pocket::new(&*option_env!("POCKET_CONSUMER_KEY").unwrap(), None);
-    let url = pocket.get_auth_url().unwrap();
-    println!("Follow auth URL to provide access and press enter when finished: {}", url);
+    let pocket = Pocket::auth(&std::env::var("POCKET_CONSUMER_KEY").unwrap());
+    let pocket = pocket.request("rustapi:finishauth").unwrap();
+    println!("Follow auth URL to provide access and press enter when finished: {}", pocket.url());
     let _ = io::stdin().read_line(&mut String::new());
-    let username = pocket.authorize().unwrap();
-    println!("username: {}", username);
-    println!("access token: {:?}", pocket.access_token());
+    let user = pocket.authorize().unwrap();
+    println!("username: {:?}", user.username);
+    println!("access token: {:?}", user.access_token);
 
+    let pocket = user.pocket();
     let item = pocket.push("https://example.com").unwrap();
     println!("item: {:?}", item);
 
