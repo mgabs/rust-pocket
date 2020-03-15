@@ -174,8 +174,8 @@ pub struct PocketAuthorizeResponse {
 
 #[derive(Serialize)]
 struct PocketAddRequest<'a> {
-    #[serde(with = "url_serde")]
-    pub url: url::Url, // TODO - borrow
+    #[serde(serialize_with = "borrow_url")]
+    pub url: &'a url::Url,
     pub title: Option<&'a str>,
     pub tags: Option<&'a str>, // TODO - make vec or array
     pub tweet_id: Option<&'a str>,
@@ -868,9 +868,9 @@ impl Pocket {
         &self.access_token
     }
 
-    pub fn add<T: IntoUrl>(
+    pub fn add(
         &self,
-        url: T,
+        url: &Url,
         title: Option<&str>,
         tags: Option<&str>,
         tweet_id: Option<&str>,
@@ -879,7 +879,7 @@ impl Pocket {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
             request: &PocketAddRequest {
-                url: url.into_url().unwrap(),
+                url,
                 title,
                 tags,
                 tweet_id,
@@ -919,7 +919,7 @@ impl Pocket {
 
     #[inline]
     pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
-        self.add(url, None, None, None)
+        self.add(&url.into_url().unwrap(), None, None, None)
     }
 
     pub fn filter(&self) -> PocketGetRequest {
@@ -1124,6 +1124,13 @@ where
         false => "0",
     };
     serializer.serialize_str(output)
+}
+
+fn borrow_url<S>(x: &Url, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+{
+    serializer.serialize_str(x.as_str())
 }
 
 #[cfg(test)]
@@ -1337,7 +1344,7 @@ mod test {
     #[test]
     fn test_serialize_add_request() {
         let request = &PocketAddRequest {
-            url: "http://localhost".into_url().unwrap(),
+            url: &"http://localhost".into_url().unwrap(),
             title: Some("title"),
             tags: Some("tags"),
             tweet_id: Some("tweet_id"),
