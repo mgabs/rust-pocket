@@ -24,7 +24,7 @@ use serde::{Deserialize, Deserializer, Serializer, Serialize};
 use serde::de::{DeserializeOwned, Unexpected};
 use std::str::FromStr;
 use std::fmt::Display;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use hyper::net::HttpsConnector;
 use serde_json::Value;
@@ -961,7 +961,7 @@ fn json_value_to_vec<'de, T, D>(value: Value) -> Result<Vec<T>, D::Error>
                 .map_err(serde::de::Error::custom)
         },
         o @ Value::Object(..) => {
-            serde_json::from_value::<HashMap<String, T>>(o)
+            serde_json::from_value::<BTreeMap<String, T>>(o)
                 .map(map_to_vec)
                 .map_err(serde::de::Error::custom)
         },
@@ -972,19 +972,8 @@ fn json_value_to_vec<'de, T, D>(value: Value) -> Result<Vec<T>, D::Error>
     }
 }
 
-fn map_to_vec<T>(map: HashMap<String, T>) -> Vec<T>
-    where T: Clone + std::fmt::Debug
-{
-    let mut result = vec![];
-    let mut kvs = map.iter().collect::<Vec<_>>();
-    // TODO - items have a sort id, images and such have and index - rethink this sort, possibly a better map type?
-    kvs.sort_by(|&a, &b| a.0.cmp(b.0) );
-
-    for (_, v) in kvs {
-        result.push(v.clone());
-    }
-
-    result
+fn map_to_vec<T>(map: BTreeMap<String, T>) -> Vec<T> {
+    map.into_iter().map(|(_, v)| v).collect::<Vec<_>>()
 }
 
 // https://github.com/serde-rs/serde/issues/1344
