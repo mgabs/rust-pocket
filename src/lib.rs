@@ -57,14 +57,6 @@ impl From<HttpError> for PocketError {
 }
 
 impl Error for PocketError {
-    fn description(&self) -> &str {
-        match *self {
-            PocketError::Http(ref e) => e.description(),
-            PocketError::Json(ref e) => e.description(),
-            PocketError::Proto(..) => "protocol error"
-        }
-    }
-
     fn cause(&self) -> Option<&dyn Error> {
         match *self {
             PocketError::Http(ref e) => Some(e),
@@ -89,13 +81,13 @@ struct XAccept(pub Mime);
 
 impl std::ops::Deref for XAccept {
     type Target = Mime;
-    fn deref<'a>(&'a self) -> &'a Mime {
+    fn deref(&self) -> &Mime {
         &self.0
     }
 }
 
 impl std::ops::DerefMut for XAccept {
-    fn deref_mut<'a>(&'a mut self) -> &'a mut Mime {
+    fn deref_mut(&mut self) -> &mut Mime {
         &mut self.0
     }
 }
@@ -106,7 +98,7 @@ impl Header for XAccept {
     }
 
     fn parse_header(raw: &[Vec<u8>]) -> Result<XAccept, HttpError> {
-        from_one_raw_str(raw).map(|mime| XAccept(mime))
+        from_one_raw_str(raw).map(XAccept)
     }
 }
 
@@ -127,7 +119,7 @@ impl Header for XError {
     }
 
     fn parse_header(raw: &[Vec<u8>]) -> Result<XError, HttpError> {
-        from_one_raw_str(raw).map(|error| XError(error))
+        from_one_raw_str(raw).map(XError)
     }
 }
 
@@ -143,7 +135,7 @@ impl Header for XErrorCode {
     }
 
     fn parse_header(raw: &[Vec<u8>]) -> Result<XErrorCode, HttpError> {
-        from_one_raw_str(raw).map(|code| XErrorCode(code))
+        from_one_raw_str(raw).map(XErrorCode)
     }
 }
 
@@ -334,7 +326,7 @@ pub struct PocketUserRequest<'a, T> {
     request: T,
 }
 
-#[derive(Serialize)]
+#[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PocketGetRequest<'a> {
     search: Option<&'a str>,
@@ -359,19 +351,7 @@ pub struct PocketGetRequest<'a> {
 
 impl<'a> PocketGetRequest<'a> {
     pub fn new() -> PocketGetRequest<'a> {
-        PocketGetRequest {
-            search: None,
-            domain: None,
-            tag: None,
-            state: None,
-            content_type: None,
-            detail_type: None,
-            favorite: None,
-            since: None,
-            sort: None,
-            count: None,
-            offset: None
-        }
+        Default::default()
     }
 
     pub fn search<'b>(&'b mut self, search: &'a str) -> &'b mut PocketGetRequest<'a> {
@@ -851,9 +831,9 @@ impl Pocket {
             access_token: &*self.access_token,
             request: &PocketAddRequest {
                 url: url.into_url().unwrap(),
-                title: title.map(|v| v.clone()),
-                tags: tags.map(|v| v.clone()),
-                tweet_id: tweet_id.map(|v| v.clone())
+                title,
+                tags,
+                tweet_id
             }
         };
 
@@ -881,7 +861,7 @@ impl Pocket {
         ];
 
         let mut url = "https://getpocket.com/v3/send".into_url().unwrap();
-        url.query_pairs_mut().extend_pairs(params.into_iter());
+        url.query_pairs_mut().extend_pairs(params.iter());
 
         self.client.get(url)
     }
@@ -991,6 +971,7 @@ fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
     }
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn optional_bool_to_int<S>(x: &Option<bool>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -1046,6 +1027,7 @@ mod date_unix_timestamp_format {
     }
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn bool_to_int<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
