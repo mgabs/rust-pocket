@@ -8,7 +8,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use chrono::{DateTime, Utc, TimeZone};
+use chrono::{DateTime, TimeZone, Utc};
 use hyper::client::{Client, IntoUrl, RequestBuilder};
 use hyper::error::Error as HttpError;
 use hyper::header::parsing::from_one_raw_str;
@@ -320,7 +320,6 @@ pub struct PocketAddedItem {
     pub lang: String,
 
     // TODO - time_first_parsed 0
-
     pub authors: Vec<ItemAuthor>,
     pub images: Vec<ItemImage>,
 
@@ -538,7 +537,7 @@ struct PocketGetResponse {
     error: Option<String>,
     search_meta: PocketSearchMeta,
     #[serde(deserialize_with = "int_date_unix_timestamp_format")]
-    since: DateTime<Utc>
+    since: DateTime<Utc>,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -1014,8 +1013,8 @@ fn map_to_vec<T>(map: BTreeMap<String, T>) -> Vec<T> {
 
 // https://github.com/serde-rs/serde/issues/1344
 fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     match u8::deserialize(deserializer)? {
         0 => Ok(false),
@@ -1070,20 +1069,23 @@ where
 }
 
 fn int_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let unix_timestamp = i64::deserialize(deserializer)?;
     Ok(Utc.timestamp(unix_timestamp, 0))
 }
 
-fn option_string_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
-    where
-        D: Deserializer<'de>,
+fn option_string_date_unix_timestamp_format<'de, D>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
 {
     match String::deserialize(deserializer)?.as_str() {
         "0" => Ok(None),
-        str => str.parse::<i64>()
+        str => str
+            .parse::<i64>()
             .map(|i| Some(Utc.timestamp(i, 0)))
             .map_err(serde::de::Error::custom),
     }
