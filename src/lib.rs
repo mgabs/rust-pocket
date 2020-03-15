@@ -8,7 +8,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, TimeZone};
 use hyper::client::{Client, IntoUrl, RequestBuilder};
 use hyper::error::Error as HttpError;
 use hyper::header::parsing::from_one_raw_str;
@@ -182,10 +182,10 @@ struct PocketAddRequest<'a> {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct ItemImage {
+pub struct PocketImage {
     #[serde(deserialize_with = "from_str")]
     pub item_id: u64,
-    #[serde(deserialize_with = "from_str")]
+    #[serde(default, deserialize_with = "from_str")]
     pub image_id: u64,
     #[serde(with = "url_serde")]
     pub src: Url,
@@ -198,10 +198,29 @@ pub struct ItemImage {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct ItemImage {
+    #[serde(deserialize_with = "from_str")]
+    pub item_id: u64,
+    #[serde(with = "url_serde")]
+    pub src: Url,
+    #[serde(deserialize_with = "from_str")]
+    pub width: u16,
+    #[serde(deserialize_with = "from_str")]
+    pub height: u16,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct DomainMetaData {
     pub name: Option<String>,
     pub logo: String,
     pub greyscale_logo: String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Clone)]
+pub struct ItemTag {
+    #[serde(deserialize_with = "from_str")]
+    item_id: u64,
+    tag: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
@@ -219,7 +238,7 @@ pub struct ItemVideo {
     #[serde(deserialize_with = "option_from_str")]
     pub length: Option<usize>,
     pub vid: String,
-    #[serde(rename = "type")]
+    #[serde(rename = "type", deserialize_with = "from_str")]
     pub vtype: u16,
 }
 
@@ -243,7 +262,6 @@ pub enum PocketItemHas {
     Is,
 }
 
-// TODO - compare with PocketItem
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
@@ -285,23 +303,24 @@ pub struct PocketAddedItem {
     pub word_count: usize,
 
     // TODO - innerdomain_redirect 1
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub login_required: bool,
 
     pub has_image: PocketItemHas,
     pub has_video: PocketItemHas,
 
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub is_index: bool,
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub is_article: bool,
 
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub used_fallback: bool,
 
     pub lang: String,
 
     // TODO - time_first_parsed 0
+
     pub authors: Vec<ItemAuthor>,
     pub images: Vec<ItemImage>,
 
@@ -514,11 +533,12 @@ struct PocketGetResponse {
     #[serde(deserialize_with = "vec_from_map")]
     list: Vec<PocketItem>,
     status: u16,
-    complete: u16, // TODO - map to bool
+    #[serde(deserialize_with = "bool_from_int")]
+    complete: bool,
     error: Option<String>,
     search_meta: PocketSearchMeta,
-    // TODO - deserialize option datetime utc
-    //since: Option<DateTime<Utc>>
+    #[serde(deserialize_with = "int_date_unix_timestamp_format")]
+    since: DateTime<Utc>
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -544,21 +564,21 @@ pub struct PocketItem {
     pub word_count: usize,
     pub excerpt: String,
 
-    #[serde(with = "date_unix_timestamp_format")]
+    #[serde(with = "string_date_unix_timestamp_format")]
     pub time_added: DateTime<Utc>,
-    #[serde(with = "date_unix_timestamp_format")]
-    pub time_read: DateTime<Utc>,
-    #[serde(with = "date_unix_timestamp_format")]
-    pub time_updated: DateTime<Utc>, // TODO - change to None if zero?
-    #[serde(with = "date_unix_timestamp_format")]
-    pub time_favorited: DateTime<Utc>,
+    #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
+    pub time_read: Option<DateTime<Utc>>,
+    #[serde(with = "string_date_unix_timestamp_format")]
+    pub time_updated: DateTime<Utc>,
+    #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
+    pub time_favorited: Option<DateTime<Utc>>,
 
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub favorite: bool,
 
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub is_index: bool,
-    #[serde(deserialize_with = "bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int_string")]
     pub is_article: bool,
     pub has_image: PocketItemHas,
     pub has_video: PocketItemHas,
@@ -572,7 +592,9 @@ pub struct PocketItem {
 
     pub status: PocketItemStatus,
     #[serde(default, deserialize_with = "optional_vec_from_map")]
-    pub images: Option<Vec<ItemImage>>,
+    pub tags: Option<Vec<ItemTag>>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub images: Option<Vec<PocketImage>>,
     #[serde(default, deserialize_with = "optional_vec_from_map")]
     pub videos: Option<Vec<ItemVideo>>,
     #[serde(default, deserialize_with = "optional_vec_from_map")]
@@ -581,9 +603,11 @@ pub struct PocketItem {
     pub time_to_read: Option<u64>,
     pub domain_metadata: Option<DomainMetaData>,
     pub listen_duration_estimate: Option<u64>,
-    // pub image: Option<ItemImage>, // TODO - does not have image_id
-    // TODO - amp_url
-    // TODO - top_image_url
+    pub image: Option<ItemImage>,
+    #[serde(default, with = "url_serde")]
+    pub amp_url: Option<Url>,
+    #[serde(default, with = "url_serde")]
+    pub top_image_url: Option<Url>,
 }
 
 #[derive(Serialize)]
@@ -990,6 +1014,20 @@ fn map_to_vec<T>(map: BTreeMap<String, T>) -> Vec<T> {
 
 // https://github.com/serde-rs/serde/issues/1344
 fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    match u8::deserialize(deserializer)? {
+        0 => Ok(false),
+        1 => Ok(true),
+        other => Err(serde::de::Error::invalid_value(
+            Unexpected::Unsigned(other as u64),
+            &"zero or one",
+        )),
+    }
+}
+
+fn bool_from_int_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -1019,7 +1057,7 @@ where
     S: Serializer,
 {
     match x {
-        Some(ref value) => date_unix_timestamp_format::serialize(value, serializer),
+        Some(ref value) => string_date_unix_timestamp_format::serialize(value, serializer),
         None => serializer.serialize_none(),
     }
 }
@@ -1031,8 +1069,28 @@ where
     serializer.serialize_str("_untagged_")
 }
 
+fn int_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    let unix_timestamp = i64::deserialize(deserializer)?;
+    Ok(Utc.timestamp(unix_timestamp, 0))
+}
+
+fn option_string_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    match String::deserialize(deserializer)?.as_str() {
+        "0" => Ok(None),
+        str => str.parse::<i64>()
+            .map(|i| Some(Utc.timestamp(i, 0)))
+            .map_err(serde::de::Error::custom),
+    }
+}
+
 // inspired by https://serde.rs/custom-date-format.html
-mod date_unix_timestamp_format {
+mod string_date_unix_timestamp_format {
     use chrono::{DateTime, TimeZone, Utc};
     use serde::{self, Deserialize, Deserializer, Serializer};
 
@@ -1245,32 +1303,23 @@ mod test {
     fn test_deserialize_item_image() {
         let expected = ItemImage {
             item_id: 1,
-            image_id: 2,
             src: "http://localhost".into_url().unwrap(),
             width: 3,
             height: 4,
-            caption: "caption".to_string(),
-            credit: "credit".to_string(),
         };
         let response = remove_whitespace(&format!(
             r#"
                     {{
                         "item_id": "{item_id}",
-                        "image_id": "{image_id}",
                         "src": "{src}",
                         "width": "{width}",
-                        "height": "{height}",
-                        "caption": "{caption}",
-                        "credit": "{credit}"
+                        "height": "{height}"
                     }}
                "#,
             item_id = expected.item_id,
-            image_id = expected.image_id,
             src = expected.src,
             width = expected.width,
             height = expected.height,
-            caption = expected.caption,
-            credit = expected.credit,
         ));
 
         let actual: ItemImage = serde_json::from_str(&response).unwrap();
@@ -1321,11 +1370,12 @@ mod test {
         let expected = PocketGetResponse {
             list: vec![],
             status: 1,
-            complete: 1,
+            complete: true,
             error: None,
             search_meta: PocketSearchMeta {
                 search_type: "normal".to_string(),
             },
+            since: Utc.timestamp(0, 0),
         };
         let response = remove_whitespace(&format!(
             r#"
@@ -1355,11 +1405,12 @@ mod test {
         let expected = PocketGetResponse {
             list: vec![],
             status: 2,
-            complete: 1,
+            complete: true,
             error: None,
             search_meta: PocketSearchMeta {
                 search_type: "normal".to_string(),
             },
+            since: Utc.timestamp(0, 0),
         };
         let response = remove_whitespace(&format!(
             r#"
