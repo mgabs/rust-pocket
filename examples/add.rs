@@ -12,7 +12,7 @@ fn main() {
 
     let item = pocket
         .add(
-            "https://example.com".into_url().unwrap(),
+            &"https://example.com".into_url().unwrap(),
             Some("Example title"),
             Some("example-tag"),
             Some("example_tweet_id"),
