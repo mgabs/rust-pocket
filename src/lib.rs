@@ -1,39 +1,39 @@
-extern crate hyper;
-extern crate url;
-extern crate mime;
 extern crate chrono;
+extern crate hyper;
 extern crate hyper_native_tls;
+extern crate mime;
+extern crate url;
 
-extern crate serde_derive;
 extern crate serde;
+extern crate serde_derive;
 extern crate serde_json;
 
-use hyper_native_tls::NativeTlsClient;
-use hyper::header::{Header, HeaderFormat, ContentType};
+use chrono::{DateTime, Utc};
 use hyper::client::{Client, IntoUrl, RequestBuilder};
-use hyper::header::parsing::from_one_raw_str;
 use hyper::error::Error as HttpError;
-use url::Url;
+use hyper::header::parsing::from_one_raw_str;
+use hyper::header::{ContentType, Header, HeaderFormat};
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
 use mime::Mime;
-use std::error::Error;
+use serde::de::{DeserializeOwned, Unexpected};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
+use std::collections::BTreeMap;
 use std::convert::From;
+use std::error::Error;
+use std::fmt::Display;
 use std::io::Error as IoError;
 use std::io::Read;
 use std::result::Result;
-use serde::{Deserialize, Deserializer, Serializer, Serialize};
-use serde::de::{DeserializeOwned, Unexpected};
 use std::str::FromStr;
-use std::fmt::Display;
-use std::collections::BTreeMap;
-use chrono::{DateTime, Utc};
-use hyper::net::HttpsConnector;
-use serde_json::Value;
+use url::Url;
 
 #[derive(Debug)]
 pub enum PocketError {
     Http(HttpError),
     Json(serde_json::Error),
-    Proto(u16, String)
+    Proto(u16, String),
 }
 
 pub type PocketResult<T> = Result<T, PocketError>;
@@ -61,7 +61,7 @@ impl Error for PocketError {
         match *self {
             PocketError::Http(ref e) => Some(e),
             PocketError::Json(ref e) => Some(e),
-            PocketError::Proto(..) => None
+            PocketError::Proto(..) => None,
         }
     }
 }
@@ -71,7 +71,9 @@ impl std::fmt::Display for PocketError {
         match *self {
             PocketError::Http(ref e) => e.fmt(fmt),
             PocketError::Json(ref e) => e.fmt(fmt),
-            PocketError::Proto(ref code, ref msg) => fmt.write_str(&*format!("{} (code {})", msg, code))
+            PocketError::Proto(ref code, ref msg) => {
+                fmt.write_str(&*format!("{} (code {})", msg, code))
+            }
         }
     }
 }
@@ -149,25 +151,25 @@ impl HeaderFormat for XErrorCode {
 pub struct PocketOAuthRequest<'a> {
     consumer_key: &'a str,
     redirect_uri: &'a str,
-    state: Option<&'a str>
+    state: Option<&'a str>,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct PocketOAuthResponse {
     code: String,
-    state: Option<String>
+    state: Option<String>,
 }
 
 #[derive(Serialize)]
 pub struct PocketAuthorizeRequest<'a> {
     consumer_key: &'a str,
-    code: &'a str
+    code: &'a str,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct PocketAuthorizeResponse {
     access_token: String,
-    username: String
+    username: String,
 }
 
 #[derive(Serialize)]
@@ -176,7 +178,7 @@ struct PocketAddRequest<'a> {
     pub url: url::Url, // TODO - borrow
     pub title: Option<&'a str>,
     pub tags: Option<&'a str>, // TODO - make vec or array
-    pub tweet_id: Option<&'a str>
+    pub tweet_id: Option<&'a str>,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
@@ -217,7 +219,7 @@ pub struct ItemVideo {
     #[serde(deserialize_with = "option_from_str")]
     pub length: Option<usize>,
     pub vid: String,
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     pub vtype: u16,
 }
 
@@ -233,12 +235,12 @@ pub struct ItemAuthor {
 
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PocketItemHas {
-    #[serde(rename="0")]
+    #[serde(rename = "0")]
     No,
-    #[serde(rename="1")]
+    #[serde(rename = "1")]
     Yes,
-    #[serde(rename="2")]
-    Is
+    #[serde(rename = "2")]
+    Is,
 }
 
 // TODO - compare with PocketItem
@@ -273,7 +275,7 @@ pub struct PocketAddedItem {
     pub content_length: usize,
 
     pub encoding: String,
-    pub date_resolved: String, // TODO - 2020-03-02 14:51:51
+    pub date_resolved: String,  // TODO - 2020-03-02 14:51:51
     pub date_published: String, // TODO - 0000-00-00 00:00:00
 
     pub title: String,
@@ -283,7 +285,6 @@ pub struct PocketAddedItem {
     pub word_count: usize,
 
     // TODO - innerdomain_redirect 1
-
     #[serde(deserialize_with = "bool_from_int")]
     pub login_required: bool,
 
@@ -301,7 +302,6 @@ pub struct PocketAddedItem {
     pub lang: String,
 
     // TODO - time_first_parsed 0
-
     pub authors: Vec<ItemAuthor>,
     pub images: Vec<ItemImage>,
 
@@ -314,7 +314,7 @@ pub struct PocketAddedItem {
 #[derive(Deserialize, Debug)]
 pub struct PocketAddResponse {
     pub item: PocketAddedItem,
-    pub status: u16
+    pub status: u16,
 }
 
 #[derive(Serialize)]
@@ -346,7 +346,7 @@ pub struct PocketGetRequest<'a> {
     #[serde(serialize_with = "optional_to_string")]
     count: Option<usize>,
     #[serde(serialize_with = "optional_to_string")]
-    offset: Option<usize>
+    offset: Option<usize>,
 }
 
 impl<'a> PocketGetRequest<'a> {
@@ -374,12 +374,18 @@ impl<'a> PocketGetRequest<'a> {
         self
     }
 
-    pub fn content_type<'b>(&'b mut self, content_type: PocketGetType) -> &'b mut PocketGetRequest<'a> {
+    pub fn content_type<'b>(
+        &'b mut self,
+        content_type: PocketGetType,
+    ) -> &'b mut PocketGetRequest<'a> {
         self.content_type = Some(content_type);
         self
     }
 
-    pub fn detail_type<'b>(&'b mut self, detail_type: PocketGetDetail) -> &'b mut PocketGetRequest<'a> {
+    pub fn detail_type<'b>(
+        &'b mut self,
+        detail_type: PocketGetDetail,
+    ) -> &'b mut PocketGetRequest<'a> {
         self.detail_type = Some(detail_type);
         self
     }
@@ -459,48 +465,48 @@ impl<'a> PocketGetRequest<'a> {
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum PocketGetDetail {
     Simple,
-    Complete
+    Complete,
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum PocketGetSort {
     Newest,
     Oldest,
     Title,
-    Site
+    Site,
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum PocketGetState {
     Unread,
     Archive,
-    All
+    All,
 }
 
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 pub enum PocketGetTag<'a> {
-    #[serde(serialize_with="untagged_to_str")]
+    #[serde(serialize_with = "untagged_to_str")]
     Untagged,
-    Tagged(&'a str)
+    Tagged(&'a str),
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
-#[serde(rename_all="lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum PocketGetType {
     Article,
     Video,
-    Image
+    Image,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
 struct PocketSearchMeta {
-    search_type: String
+    search_type: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -517,12 +523,12 @@ struct PocketGetResponse {
 
 #[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PocketItemStatus {
-    #[serde(rename="0")]
+    #[serde(rename = "0")]
     Normal,
-    #[serde(rename="1")]
+    #[serde(rename = "1")]
     Archived,
-    #[serde(rename="2")]
-    Deleted
+    #[serde(rename = "2")]
+    Deleted,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
@@ -538,21 +544,21 @@ pub struct PocketItem {
     pub word_count: usize,
     pub excerpt: String,
 
-    #[serde(with="date_unix_timestamp_format")]
+    #[serde(with = "date_unix_timestamp_format")]
     pub time_added: DateTime<Utc>,
-    #[serde(with="date_unix_timestamp_format")]
+    #[serde(with = "date_unix_timestamp_format")]
     pub time_read: DateTime<Utc>,
-    #[serde(with="date_unix_timestamp_format")]
+    #[serde(with = "date_unix_timestamp_format")]
     pub time_updated: DateTime<Utc>, // TODO - change to None if zero?
-    #[serde(with="date_unix_timestamp_format")]
+    #[serde(with = "date_unix_timestamp_format")]
     pub time_favorited: DateTime<Utc>,
 
-    #[serde(deserialize_with="bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int")]
     pub favorite: bool,
 
-    #[serde(deserialize_with="bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int")]
     pub is_index: bool,
-    #[serde(deserialize_with="bool_from_int")]
+    #[serde(deserialize_with = "bool_from_int")]
     pub is_article: bool,
     pub has_image: PocketItemHas,
     pub has_video: PocketItemHas,
@@ -575,7 +581,6 @@ pub struct PocketItem {
     pub time_to_read: Option<u64>,
     pub domain_metadata: Option<DomainMetaData>,
     pub listen_duration_estimate: Option<u64>,
-
     // pub image: Option<ItemImage>, // TODO - does not have image_id
     // TODO - amp_url
     // TODO - top_image_url
@@ -583,98 +588,97 @@ pub struct PocketItem {
 
 #[derive(Serialize)]
 pub struct PocketSendRequest<'a> {
-    pub actions: &'a [&'a PocketSendAction]
+    pub actions: &'a [&'a PocketSendAction],
 }
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum PocketSendAction {
     Add {
-        #[serde(serialize_with="optional_to_string")]
+        #[serde(serialize_with = "optional_to_string")]
         item_id: Option<u64>,
         ref_id: Option<String>,
         tags: Option<String>,
-        #[serde(serialize_with="optional_to_string")]
+        #[serde(serialize_with = "optional_to_string")]
         time: Option<u64>,
         title: Option<String>,
         #[serde(with = "url_serde")]
-        url: Option<Url>
+        url: Option<Url>,
     },
     Archive {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     Readd {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     Favorite {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     Unfavorite {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     Delete {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
-    } ,
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
+    },
     TagsAdd {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
         tags: String,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     TagsRemove {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
         tags: String,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     TagsReplace {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
         tags: String,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     TagsClear {
-        #[serde(serialize_with="to_string")]
+        #[serde(serialize_with = "to_string")]
         item_id: u64,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     TagRename {
         old_tag: String,
         new_tag: String,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
     TagDelete {
         tag: String,
-        #[serde(serialize_with="optional_to_string")]
-        time: Option<u64>
+        #[serde(serialize_with = "optional_to_string")]
+        time: Option<u64>,
     },
 }
 
 #[derive(Deserialize, Debug)]
 pub struct PocketSendResponse {
     pub status: u16,
-    pub action_results: Vec<bool>
-    // TODO - action_errors []
+    pub action_results: Vec<bool>, // TODO - action_errors []
 }
 
 struct PocketClient {
@@ -687,7 +691,7 @@ impl PocketClient {
         let connector = HttpsConnector::new(ssl);
 
         PocketClient {
-            client: Client::with_connector(connector)
+            client: Client::with_connector(connector),
         }
     }
 
@@ -696,10 +700,15 @@ impl PocketClient {
         self.request::<T, Resp>(request)
     }
 
-    fn post<T: IntoUrl, B: Serialize, Resp: DeserializeOwned>(&self, url: T, body: &B) -> PocketResult<Resp> {
+    fn post<T: IntoUrl, B: Serialize, Resp: DeserializeOwned>(
+        &self,
+        url: T,
+        body: &B,
+    ) -> PocketResult<Resp> {
         let app_json: Mime = "application/json".parse().unwrap();
-        let body =  serde_json::to_string(body)?;
-        let request = self.client
+        let body = serde_json::to_string(body)?;
+        let request = self
+            .client
             .post(url)
             .body(&body)
             .header(ContentType(app_json.clone()))
@@ -708,16 +717,26 @@ impl PocketClient {
         self.request::<T, Resp>(request)
     }
 
-    fn request<T: IntoUrl, Resp: DeserializeOwned>(&self, request: RequestBuilder) -> PocketResult<Resp> {
-        request.send()
+    fn request<T: IntoUrl, Resp: DeserializeOwned>(
+        &self,
+        request: RequestBuilder,
+    ) -> PocketResult<Resp> {
+        request
+            .send()
             .map_err(From::from)
             .and_then(|mut r| match r.headers.get::<XErrorCode>().map(|v| v.0) {
                 None => {
                     let mut out = String::new();
                     r.read_to_string(&mut out).map_err(From::from).map(|_| out)
-                },
-                Some(code) => Err(PocketError::Proto(code, r.headers.get::<XError>().map(|v| &*v.0)
-                    .unwrap_or("unknown protocol error").to_string())),
+                }
+                Some(code) => Err(PocketError::Proto(
+                    code,
+                    r.headers
+                        .get::<XError>()
+                        .map(|v| &*v.0)
+                        .unwrap_or("unknown protocol error")
+                        .to_string(),
+                )),
             })
             .and_then(|s| serde_json::from_str(&*s).map_err(From::from))
     }
@@ -733,10 +752,11 @@ impl PocketAuthRequester {
         let body = &PocketOAuthRequest {
             consumer_key: &self.consumer_key,
             redirect_uri,
-            state: None
+            state: None,
         };
 
-        self.client.post("https://getpocket.com/v3/oauth/request", &body)
+        self.client
+            .post("https://getpocket.com/v3/oauth/request", &body)
             .and_then(|r: PocketOAuthResponse| {
                 let url = PocketAuthRequester::authorize_url(redirect_uri, &r.code);
 
@@ -744,7 +764,7 @@ impl PocketAuthRequester {
                     url,
                     consumer_key: self.consumer_key,
                     code: r.code,
-                    client: self.client
+                    client: self.client,
                 })
             })
     }
@@ -768,16 +788,15 @@ impl PocketAuthorizer {
     pub fn authorize(self) -> PocketResult<PocketUser> {
         let body = &PocketAuthorizeRequest {
             consumer_key: &self.consumer_key,
-            code: &self.code
+            code: &self.code,
         };
 
-        self.client.post("https://getpocket.com/v3/oauth/authorize", &body)
-            .map(|r: PocketAuthorizeResponse| {
-                PocketUser {
-                    consumer_key: self.consumer_key,
-                    access_token: r.access_token,
-                    username: r.username
-                }
+        self.client
+            .post("https://getpocket.com/v3/oauth/authorize", &body)
+            .map(|r: PocketAuthorizeResponse| PocketUser {
+                consumer_key: self.consumer_key,
+                access_token: r.access_token,
+                username: r.username,
             })
     }
 
@@ -802,7 +821,7 @@ impl PocketUser {
 pub struct Pocket {
     consumer_key: String,
     access_token: String,
-    client: PocketClient
+    client: PocketClient,
 }
 
 impl Pocket {
@@ -810,22 +829,29 @@ impl Pocket {
         Pocket {
             consumer_key: consumer_key.to_string(),
             access_token: access_token.to_string(),
-            client: PocketClient::new()
+            client: PocketClient::new(),
         }
     }
 
     pub fn auth(consumer_key: &str) -> PocketAuthRequester {
         PocketAuthRequester {
             consumer_key: consumer_key.to_string(),
-            client: PocketClient::new()
+            client: PocketClient::new(),
         }
     }
 
-    #[inline] pub fn access_token(&self) -> &str {
+    #[inline]
+    pub fn access_token(&self) -> &str {
         &self.access_token
     }
 
-    pub fn add<T: IntoUrl>(&self, url: T, title: Option<&str>, tags: Option<&str>, tweet_id: Option<&str>) -> PocketResult<PocketAddedItem> {
+    pub fn add<T: IntoUrl>(
+        &self,
+        url: T,
+        title: Option<&str>,
+        tags: Option<&str>,
+        tweet_id: Option<&str>,
+    ) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
@@ -833,11 +859,12 @@ impl Pocket {
                 url: url.into_url().unwrap(),
                 title,
                 tags,
-                tweet_id
-            }
+                tweet_id,
+            },
         };
 
-        self.client.post("https://getpocket.com/v3/add", &body)
+        self.client
+            .post("https://getpocket.com/v3/add", &body)
             .map(|v: PocketAddResponse| v.item)
     }
 
@@ -845,10 +872,11 @@ impl Pocket {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
-            request
+            request,
         };
 
-        self.client.post("https://getpocket.com/v3/get", &body)
+        self.client
+            .post("https://getpocket.com/v3/get", &body)
             .map(|v: PocketGetResponse| v.list)
     }
 
@@ -857,7 +885,7 @@ impl Pocket {
         let params = &[
             ("consumer_key", &*self.consumer_key),
             ("access_token", &*self.access_token),
-            ("actions", &data)
+            ("actions", &data),
         ];
 
         let mut url = "https://getpocket.com/v3/send".into_url().unwrap();
@@ -866,7 +894,8 @@ impl Pocket {
         self.client.get(url)
     }
 
-    #[inline] pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
+    #[inline]
+    pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
         self.add(url, None, None, None)
     }
 
@@ -876,9 +905,10 @@ impl Pocket {
 }
 
 fn option_from_str<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-    where T: FromStr,
-          T::Err:Display,
-          D: Deserializer<'de>
+where
+    T: FromStr,
+    T::Err: Display,
+    D: Deserializer<'de>,
 {
     let result: Result<T, D::Error> = from_str(deserializer);
     result.map(Option::from)
@@ -886,69 +916,71 @@ fn option_from_str<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 
 // https://github.com/serde-rs/json/issues/317
 fn from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-    where T: FromStr,
-          T::Err:Display,
-          D: Deserializer<'de>
+where
+    T: FromStr,
+    T::Err: Display,
+    D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
     T::from_str(&s).map_err(serde::de::Error::custom)
 }
 
 fn optional_to_string<T, S>(x: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
-    where T: ToString,
-          S: Serializer
+where
+    T: ToString,
+    S: Serializer,
 {
     match x {
         Some(ref value) => to_string(value, serializer),
-        None => serializer.serialize_none()
+        None => serializer.serialize_none(),
     }
 }
 
 fn to_string<T, S>(x: &T, serializer: S) -> Result<S::Ok, S::Error>
-    where T: ToString,
-          S: Serializer
+where
+    T: ToString,
+    S: Serializer,
 {
     serializer.serialize_str(&x.to_string())
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
-    where T: DeserializeOwned+ Clone + std::fmt::Debug,
-          D: Deserializer<'de>
+where
+    T: DeserializeOwned + Clone + std::fmt::Debug,
+    D: Deserializer<'de>,
 {
     let o: Option<Value> = Option::deserialize(deserializer)?;
     match o {
         Some(v) => json_value_to_vec::<T, D>(v).map(Some),
-        None => Ok(None)
+        None => Ok(None),
     }
 }
 
 fn vec_from_map<'de, T, D>(deserializer: D) -> Result<Vec<T>, D::Error>
-    where T: DeserializeOwned + Clone + std::fmt::Debug,
-          D: Deserializer<'de>
+where
+    T: DeserializeOwned + Clone + std::fmt::Debug,
+    D: Deserializer<'de>,
 {
     let value = Value::deserialize(deserializer)?;
     json_value_to_vec::<T, D>(value)
 }
 
 fn json_value_to_vec<'de, T, D>(value: Value) -> Result<Vec<T>, D::Error>
-    where
-        T: DeserializeOwned + Clone + std::fmt::Debug,
-        D: Deserializer<'de>,
+where
+    T: DeserializeOwned + Clone + std::fmt::Debug,
+    D: Deserializer<'de>,
 {
     match value {
         a @ Value::Array(..) => {
-            serde_json::from_value::<Vec<T>>(a)
-                .map_err(serde::de::Error::custom)
-        },
-        o @ Value::Object(..) => {
-            serde_json::from_value::<BTreeMap<String, T>>(o)
-                .map(map_to_vec)
-                .map_err(serde::de::Error::custom)
-        },
+            serde_json::from_value::<Vec<T>>(a).map_err(serde::de::Error::custom)
+        }
+        o @ Value::Object(..) => serde_json::from_value::<BTreeMap<String, T>>(o)
+            .map(map_to_vec)
+            .map_err(serde::de::Error::custom),
         other => Err(serde::de::Error::invalid_value(
             Unexpected::Other(format!("{:?}", other).as_str()),
             &"object or array",
-        ))
+        )),
     }
 }
 
@@ -958,8 +990,8 @@ fn map_to_vec<T>(map: BTreeMap<String, T>) -> Vec<T> {
 
 // https://github.com/serde-rs/serde/issues/1344
 fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     match String::deserialize(deserializer)?.as_str() {
         "0" => Ok(false),
@@ -973,52 +1005,47 @@ fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn optional_bool_to_int<S>(x: &Option<bool>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     match x {
         Some(ref value) => bool_to_int(value, serializer),
-        None => serializer.serialize_none()
+        None => serializer.serialize_none(),
     }
 }
 
 fn optional_datetime_to_int<S>(x: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     match x {
         Some(ref value) => date_unix_timestamp_format::serialize(value, serializer),
-        None => serializer.serialize_none()
+        None => serializer.serialize_none(),
     }
 }
 
 fn untagged_to_str<S>(serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     serializer.serialize_str("_untagged_")
 }
 
 // inspired by https://serde.rs/custom-date-format.html
 mod date_unix_timestamp_format {
-    use chrono::{DateTime, Utc, TimeZone};
-    use serde::{self, Deserialize, Serializer, Deserializer};
+    use chrono::{DateTime, TimeZone, Utc};
+    use serde::{self, Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(
-        date: &DateTime<Utc>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         serializer.serialize_str(&date.timestamp().to_string())
     }
 
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<DateTime<Utc>, D::Error>
-        where
-            D: Deserializer<'de>,
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         s.parse::<i64>()
@@ -1029,8 +1056,8 @@ mod date_unix_timestamp_format {
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn bool_to_int<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     let output = match x {
         true => "1",
@@ -1055,16 +1082,17 @@ mod test {
 
         let actual = serde_json::to_string(request).unwrap();
 
-        let expected = remove_whitespace(&format!(r#"
+        let expected = remove_whitespace(&format!(
+            r#"
                     {{
                         "consumer_key": "{consumer_key}",
                         "redirect_uri": "{redirect_uri}",
                         "state": "{state}"
                     }}
                "#,
-              consumer_key = request.consumer_key,
-              redirect_uri = request.redirect_uri,
-              state = request.state.unwrap()
+            consumer_key = request.consumer_key,
+            redirect_uri = request.redirect_uri,
+            state = request.state.unwrap()
         ));
 
         assert_eq!(actual, expected);
@@ -1076,14 +1104,15 @@ mod test {
             code: "code".to_string(),
             state: Some("state".to_string()),
         };
-        let response = remove_whitespace(&format!(r#"
+        let response = remove_whitespace(&format!(
+            r#"
                     {{
                         "code": "{code}",
                         "state": "{state}"
                     }}
                "#,
-              code = expected.code,
-              state = expected.state.as_ref().unwrap()
+            code = expected.code,
+            state = expected.state.as_ref().unwrap()
         ));
 
         let actual: PocketOAuthResponse = serde_json::from_str(&response).unwrap();
@@ -1100,14 +1129,15 @@ mod test {
 
         let actual = serde_json::to_string(request).unwrap();
 
-        let expected = remove_whitespace(&format!(r#"
+        let expected = remove_whitespace(&format!(
+            r#"
                     {{
                         "consumer_key": "{consumer_key}",
                         "code": "{code}"
                     }}
                "#,
-              consumer_key = request.consumer_key,
-              code = request.code
+            consumer_key = request.consumer_key,
+            code = request.code
         ));
 
         assert_eq!(actual, expected);
@@ -1119,14 +1149,15 @@ mod test {
             access_token: "access_token".to_string(),
             username: "username".to_string(),
         };
-        let response = remove_whitespace(&format!(r#"
+        let response = remove_whitespace(&format!(
+            r#"
                     {{
                         "access_token": "{access_token}",
                         "username": "{username}"
                     }}
                "#,
-              access_token = expected.access_token,
-              username = expected.username
+            access_token = expected.access_token,
+            username = expected.username
         ));
 
         let actual: PocketAuthorizeResponse = serde_json::from_str(&response).unwrap();
@@ -1155,12 +1186,13 @@ mod test {
 
             sort: Some(PocketGetSort::Newest),
             count: Some(1),
-            offset: Some(2)
+            offset: Some(2),
         };
 
         let actual = serde_json::to_string(request).unwrap();
 
-        let expected = remove_whitespace(&format!(r#"
+        let expected = remove_whitespace(&format!(
+            r#"
                     {{
                         "search": "{search}",
                         "domain": "{domain}",
@@ -1175,25 +1207,27 @@ mod test {
                         "offset": "{offset}"
                     }}
                "#,
-                  search = request.search.unwrap(),
-                  domain = request.domain.unwrap(),
-                  tag = to_inner_json_string(&request.tag.as_ref()),
-                  state = to_inner_json_string(&request.state.unwrap()),
-                  content_type = to_inner_json_string(&request.content_type.unwrap()),
-                  detail_type = to_inner_json_string(&request.detail_type.unwrap()),
-                  favorite = if request.favorite.unwrap() { 1 } else { 0 },
-                  since = request.since.unwrap().timestamp().to_string(),
-                  sort = to_inner_json_string(&request.sort.unwrap()),
-                  count = request.count.unwrap(),
-                  offset = request.offset.unwrap(),
+            search = request.search.unwrap(),
+            domain = request.domain.unwrap(),
+            tag = to_inner_json_string(&request.tag.as_ref()),
+            state = to_inner_json_string(&request.state.unwrap()),
+            content_type = to_inner_json_string(&request.content_type.unwrap()),
+            detail_type = to_inner_json_string(&request.detail_type.unwrap()),
+            favorite = if request.favorite.unwrap() { 1 } else { 0 },
+            since = request.since.unwrap().timestamp().to_string(),
+            sort = to_inner_json_string(&request.sort.unwrap()),
+            count = request.count.unwrap(),
+            offset = request.offset.unwrap(),
         ));
 
         assert_eq!(actual, expected);
     }
 
     fn to_inner_json_string<T: Serialize>(value: T) -> String {
-        serde_json::to_value(value).unwrap()
-            .as_str().unwrap()
+        serde_json::to_value(value)
+            .unwrap()
+            .as_str()
+            .unwrap()
             .trim_matches('\"')
             .to_string()
     }
@@ -1218,7 +1252,8 @@ mod test {
             caption: "caption".to_string(),
             credit: "credit".to_string(),
         };
-        let response = remove_whitespace(&format!(r#"
+        let response = remove_whitespace(&format!(
+            r#"
                     {{
                         "item_id": "{item_id}",
                         "image_id": "{image_id}",
@@ -1229,13 +1264,13 @@ mod test {
                         "credit": "{credit}"
                     }}
                "#,
-              item_id = expected.item_id,
-              image_id = expected.image_id,
-              src = expected.src,
-              width = expected.width,
-              height = expected.height,
-              caption = expected.caption,
-              credit = expected.credit,
+            item_id = expected.item_id,
+            image_id = expected.image_id,
+            src = expected.src,
+            width = expected.width,
+            height = expected.height,
+            caption = expected.caption,
+            credit = expected.credit,
         ));
 
         let actual: ItemImage = serde_json::from_str(&response).unwrap();
@@ -1259,7 +1294,8 @@ mod test {
 
         let actual = serde_json::to_string(request).unwrap();
 
-        let expected = remove_whitespace(&format!(r#"
+        let expected = remove_whitespace(&format!(
+            r#"
                     {{
                         "url": "{url}",
                         "title": "{title}",
@@ -1267,10 +1303,10 @@ mod test {
                         "tweet_id": "{tweet_id}"
                     }}
                "#,
-              url = request.url,
-              title = request.title.unwrap(),
-              tags = request.tags.unwrap(),
-              tweet_id = request.tweet_id.unwrap(),
+            url = request.url,
+            title = request.title.unwrap(),
+            tags = request.tags.unwrap(),
+            tweet_id = request.tweet_id.unwrap(),
         ));
 
         assert_eq!(actual, expected);
@@ -1288,10 +1324,11 @@ mod test {
             complete: 1,
             error: None,
             search_meta: PocketSearchMeta {
-                search_type: "normal".to_string()
-            }
+                search_type: "normal".to_string(),
+            },
         };
-        let response = remove_whitespace(&format!(r#"
+        let response = remove_whitespace(&format!(
+            r#"
                     {{
                         "status": {status},
                         "complete": {complete},
@@ -1303,9 +1340,9 @@ mod test {
                         "since": 1584221353
                     }}
                "#,
-              status = expected.status,
-              complete = expected.complete,
-              search_type = expected.search_meta.search_type,
+            status = expected.status,
+            complete = expected.complete,
+            search_type = expected.search_meta.search_type,
         ));
 
         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
@@ -1321,10 +1358,11 @@ mod test {
             complete: 1,
             error: None,
             search_meta: PocketSearchMeta {
-                search_type: "normal".to_string()
-            }
+                search_type: "normal".to_string(),
+            },
         };
-        let response = remove_whitespace(&format!(r#"
+        let response = remove_whitespace(&format!(
+            r#"
                 {{
                     "status": {status},
                     "complete": {complete},
@@ -1336,9 +1374,9 @@ mod test {
                     "since": 1584221353
                 }}
            "#,
-          status = expected.status,
-          complete = expected.complete,
-          search_type = expected.search_meta.search_type,
+            status = expected.status,
+            complete = expected.complete,
+            search_type = expected.search_meta.search_type,
         ));
 
         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
