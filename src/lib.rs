@@ -185,7 +185,7 @@ struct PocketAddRequest<'a> {
 pub struct PocketImage {
     #[serde(deserialize_with = "from_str")]
     pub item_id: u64,
-    #[serde(default, deserialize_with = "from_str")]
+    #[serde(deserialize_with = "from_str")]
     pub image_id: u64,
     #[serde(with = "url_serde")]
     pub src: Url,
