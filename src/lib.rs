@@ -205,7 +205,7 @@ pub struct ItemImage {
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct DomainMetaData {
-    pub name: String,
+    pub name: Option<String>,
     pub logo: String,
     pub greyscale_logo: String,
 }
