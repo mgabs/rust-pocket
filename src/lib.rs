@@ -173,12 +173,38 @@ pub struct PocketAuthorizeResponse {
 }
 
 #[derive(Serialize)]
-struct PocketAddRequest<'a> {
+pub struct PocketAddRequest<'a> {
     #[serde(serialize_with = "borrow_url")]
     pub url: &'a url::Url,
     pub title: Option<&'a str>,
     pub tags: Option<&'a str>, // TODO - make vec or array
     pub tweet_id: Option<&'a str>,
+}
+
+impl<'a> PocketAddRequest<'a> {
+    pub fn new(url: &Url) -> PocketAddRequest {
+        PocketAddRequest {
+            url,
+            title: None,
+            tags: None,
+            tweet_id: None
+        }
+    }
+
+    pub fn title<'b>(&'b mut self, title: &'a str) -> &'b mut PocketAddRequest<'a> {
+        self.title = Some(title);
+        self
+    }
+
+    pub fn tags<'b>(&'b mut self, tags: &'a str) -> &'b mut PocketAddRequest<'a> {
+        self.tags = Some(tags);
+        self
+    }
+
+    pub fn tweet_id<'b>(&'b mut self, tweet_id: &'a str) -> &'b mut PocketAddRequest<'a> {
+        self.tweet_id = Some(tweet_id);
+        self
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
