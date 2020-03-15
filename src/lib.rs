@@ -6,6 +6,7 @@ extern crate hyper_native_tls;
 
 extern crate serde_derive;
 extern crate serde;
+extern crate serde_json;
 
 use hyper_native_tls::NativeTlsClient;
 use hyper::header::{Header, HeaderFormat, ContentType};
@@ -26,6 +27,7 @@ use std::fmt::Display;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use hyper::net::HttpsConnector;
+use serde_json::Value;
 
 #[derive(Debug)]
 pub enum PocketError {
@@ -516,12 +518,12 @@ pub enum PocketGetType {
     Image
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 struct PocketSearchMeta {
     search_type: String
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 struct PocketGetResponse {
     #[serde(deserialize_with = "vec_from_map")]
     list: Vec<PocketItem>,
@@ -930,21 +932,44 @@ fn to_string<T, S>(x: &T, serializer: S) -> Result<S::Ok, S::Error>
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
-    where T: Deserialize<'de> + Clone + std::fmt::Debug,
+    where T: DeserializeOwned+ Clone + std::fmt::Debug,
           D: Deserializer<'de>
 {
-    let m: Option< HashMap<String, T>> = Option::deserialize(deserializer)?;
-    Ok(m.map(map_to_vec))
+    let o: Option<Value> = Option::deserialize(deserializer)?;
+    match o {
+        Some(v) => json_value_to_vec::<T, D>(v).map(Some),
+        None => Ok(None)
+    }
 }
 
 fn vec_from_map<'de, T, D>(deserializer: D) -> Result<Vec<T>, D::Error>
-    where T: Deserialize<'de> + Clone + std::fmt::Debug,
+    where T: DeserializeOwned + Clone + std::fmt::Debug,
           D: Deserializer<'de>
 {
-    let map: HashMap<String, T> = HashMap::deserialize(deserializer)?;
-    let result = map_to_vec(map);
+    let value = Value::deserialize(deserializer)?;
+    json_value_to_vec::<T, D>(value)
+}
 
-    Ok(result)
+fn json_value_to_vec<'de, T, D>(value: Value) -> Result<Vec<T>, D::Error>
+    where
+        T: DeserializeOwned + Clone + std::fmt::Debug,
+        D: Deserializer<'de>,
+{
+    match value {
+        a @ Value::Array(..) => {
+            serde_json::from_value::<Vec<T>>(a)
+                .map_err(serde::de::Error::custom)
+        },
+        o @ Value::Object(..) => {
+            serde_json::from_value::<HashMap<String, T>>(o)
+                .map(map_to_vec)
+                .map_err(serde::de::Error::custom)
+        },
+        other => Err(serde::de::Error::invalid_value(
+            Unexpected::Other(format!("{:?}", other).as_str()),
+            &"object or array",
+        ))
+    }
 }
 
 fn map_to_vec<T>(map: HashMap<String, T>) -> Vec<T>
@@ -1282,7 +1307,74 @@ mod test {
 
     // PocketAddedItem
     // PocketAddResponse
+
     // PocketGetResponse
+    #[test]
+    fn test_deserialize_get_response_with_list_map() {
+        let expected = PocketGetResponse {
+            list: vec![],
+            status: 1,
+            complete: 1,
+            error: None,
+            search_meta: PocketSearchMeta {
+                search_type: "normal".to_string()
+            }
+        };
+        let response = remove_whitespace(&format!(r#"
+                    {{
+                        "status": {status},
+                        "complete": {complete},
+                        "list": {{}},
+                        "error": null,
+                        "search_meta": {{
+                            "search_type": "{search_type}"
+                        }},
+                        "since": 1584221353
+                    }}
+               "#,
+              status = expected.status,
+              complete = expected.complete,
+              search_type = expected.search_meta.search_type,
+        ));
+
+        let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_deserialize_get_response_with_list_array() {
+        let expected = PocketGetResponse {
+            list: vec![],
+            status: 2,
+            complete: 1,
+            error: None,
+            search_meta: PocketSearchMeta {
+                search_type: "normal".to_string()
+            }
+        };
+        let response = remove_whitespace(&format!(r#"
+                {{
+                    "status": {status},
+                    "complete": {complete},
+                    "list": [],
+                    "error": null,
+                    "search_meta": {{
+                        "search_type": "{search_type}"
+                    }},
+                    "since": 1584221353
+                }}
+           "#,
+          status = expected.status,
+          complete = expected.complete,
+          search_type = expected.search_meta.search_type,
+        ));
+
+        let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
+
     // PocketItemStatus
     // PocketItem
 }
