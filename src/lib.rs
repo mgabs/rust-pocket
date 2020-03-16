@@ -173,12 +173,39 @@ pub struct PocketAuthorizeResponse {
 }
 
 #[derive(Serialize)]
-struct PocketAddRequest<'a> {
-    #[serde(with = "url_serde")]
-    pub url: url::Url, // TODO - borrow
+pub struct PocketAddRequest<'a> {
+    #[serde(serialize_with = "borrow_url")]
+    pub url: &'a url::Url,
     pub title: Option<&'a str>,
-    pub tags: Option<&'a str>, // TODO - make vec or array
+    #[serde(serialize_with = "to_comma_delimited_string")]
+    pub tags: Option<&'a [&'a str]>,
     pub tweet_id: Option<&'a str>,
+}
+
+impl<'a> PocketAddRequest<'a> {
+    pub fn new(url: &Url) -> PocketAddRequest {
+        PocketAddRequest {
+            url,
+            title: None,
+            tags: None,
+            tweet_id: None
+        }
+    }
+
+    pub fn title<'b>(&'b mut self, title: &'a str) -> &'b mut PocketAddRequest<'a> {
+        self.title = Some(title);
+        self
+    }
+
+    pub fn tags<'b>(&'b mut self, tags: &'a [&'a str]) -> &'b mut PocketAddRequest<'a> {
+        self.tags = Some(tags);
+        self
+    }
+
+    pub fn tweet_id<'b>(&'b mut self, tweet_id: &'a str) -> &'b mut PocketAddRequest<'a> {
+        self.tweet_id = Some(tweet_id);
+        self
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
@@ -868,22 +895,11 @@ impl Pocket {
         &self.access_token
     }
 
-    pub fn add<T: IntoUrl>(
-        &self,
-        url: T,
-        title: Option<&str>,
-        tags: Option<&str>,
-        tweet_id: Option<&str>,
-    ) -> PocketResult<PocketAddedItem> {
+    pub fn add(&self, request: &PocketAddRequest) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
-            request: &PocketAddRequest {
-                url: url.into_url().unwrap(),
-                title,
-                tags,
-                tweet_id,
-            },
+            request,
         };
 
         self.client
@@ -919,7 +935,7 @@ impl Pocket {
 
     #[inline]
     pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
-        self.add(url, None, None, None)
+        self.add(&PocketAddRequest::new(&url.into_url().unwrap()))
     }
 
     pub fn filter(&self) -> PocketGetRequest {
@@ -965,6 +981,18 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&x.to_string())
+}
+
+fn to_comma_delimited_string<S>(x: &Option<&[&str]>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+{
+    match x {
+        Some(value) => {
+            serializer.serialize_str(&value.join(","))
+        },
+        None => serializer.serialize_none(),
+    }
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
@@ -1124,6 +1152,13 @@ where
         false => "0",
     };
     serializer.serialize_str(output)
+}
+
+fn borrow_url<S>(x: &Url, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+{
+    serializer.serialize_str(x.as_str())
 }
 
 #[cfg(test)]
@@ -1336,10 +1371,11 @@ mod test {
     // PocketAddRequest
     #[test]
     fn test_serialize_add_request() {
+        let tags = &["tags"];
         let request = &PocketAddRequest {
-            url: "http://localhost".into_url().unwrap(),
+            url: &"http://localhost".into_url().unwrap(),
             title: Some("title"),
-            tags: Some("tags"),
+            tags: Some(tags),
             tweet_id: Some("tweet_id"),
         };
 
@@ -1356,7 +1392,7 @@ mod test {
                "#,
             url = request.url,
             title = request.title.unwrap(),
-            tags = request.tags.unwrap(),
+            tags = request.tags.unwrap().join(","),
             tweet_id = request.tweet_id.unwrap(),
         ));
 
