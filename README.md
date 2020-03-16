@@ -63,7 +63,10 @@ To add an item, use the `Pocket::add()`, `Pocket::push()`, or
 let added_item = pocket.push("http://example.com").unwrap();
 
 // Add with all meta-info provided (title, tags, tweet id)
-let added_item = pocket.add("https://example.com", Some("Example title"), Some("example-tag"), Some("example_tweet_id")).unwrap();
+let added_item = pocket.add(&PocketAddRequest::new(&url)
+    .title("Example title")
+    .tags(&["example-tag"])
+    .tweet_id("example_tweet_id")).unwrap();
 
 // Add with one or more actions
 use hyper::client::IntoUrl;
