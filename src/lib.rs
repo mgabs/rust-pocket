@@ -895,22 +895,11 @@ impl Pocket {
         &self.access_token
     }
 
-    pub fn add(
-        &self,
-        url: &Url,
-        title: Option<&str>,
-        tags: Option<&[&str]>,
-        tweet_id: Option<&str>,
-    ) -> PocketResult<PocketAddedItem> {
+    pub fn add(&self, request: &PocketAddRequest) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
-            request: &PocketAddRequest {
-                url,
-                title,
-                tags,
-                tweet_id,
-            },
+            request,
         };
 
         self.client
@@ -946,7 +935,7 @@ impl Pocket {
 
     #[inline]
     pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
-        self.add(&url.into_url().unwrap(), None, None, None)
+        self.add(&PocketAddRequest::new(&url.into_url().unwrap()))
     }
 
     pub fn filter(&self) -> PocketGetRequest {
