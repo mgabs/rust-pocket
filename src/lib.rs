@@ -1377,7 +1377,7 @@ mod test {
             search_meta: PocketSearchMeta {
                 search_type: "normal".to_string(),
             },
-            since: Utc.timestamp(0, 0),
+            since: Utc.timestamp(1584221353, 0),
         };
         let response = remove_whitespace(&format!(
             r#"
@@ -1389,12 +1389,14 @@ mod test {
                         "search_meta": {{
                             "search_type": "{search_type}"
                         }},
-                        "since": 1584221353
+                        "since": {since}
                     }}
                "#,
             status = expected.status,
-            complete = expected.complete,
+            complete = if expected.complete { 1 } else { 0 },
             search_type = expected.search_meta.search_type,
+            since = expected.since.timestamp(),
+
         ));
 
         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
@@ -1412,7 +1414,7 @@ mod test {
             search_meta: PocketSearchMeta {
                 search_type: "normal".to_string(),
             },
-            since: Utc.timestamp(0, 0),
+            since: Utc.timestamp(1584221353, 0),
         };
         let response = remove_whitespace(&format!(
             r#"
@@ -1424,12 +1426,13 @@ mod test {
                     "search_meta": {{
                         "search_type": "{search_type}"
                     }},
-                    "since": 1584221353
+                    "since": {since}
                 }}
            "#,
             status = expected.status,
-            complete = expected.complete,
+            complete = if expected.complete { 1 } else { 0 },
             search_type = expected.search_meta.search_type,
+            since = expected.since.timestamp(),
         ));
 
         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
