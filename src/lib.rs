@@ -177,7 +177,8 @@ pub struct PocketAddRequest<'a> {
     #[serde(serialize_with = "borrow_url")]
     pub url: &'a url::Url,
     pub title: Option<&'a str>,
-    pub tags: Option<&'a str>, // TODO - make vec or array
+    #[serde(serialize_with = "to_comma_delimited_string")]
+    pub tags: Option<&'a [&'a str]>,
     pub tweet_id: Option<&'a str>,
 }
 
@@ -196,7 +197,7 @@ impl<'a> PocketAddRequest<'a> {
         self
     }
 
-    pub fn tags<'b>(&'b mut self, tags: &'a str) -> &'b mut PocketAddRequest<'a> {
+    pub fn tags<'b>(&'b mut self, tags: &'a [&'a str]) -> &'b mut PocketAddRequest<'a> {
         self.tags = Some(tags);
         self
     }
@@ -898,7 +899,7 @@ impl Pocket {
         &self,
         url: &Url,
         title: Option<&str>,
-        tags: Option<&str>,
+        tags: Option<&[&str]>,
         tweet_id: Option<&str>,
     ) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
@@ -991,6 +992,18 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&x.to_string())
+}
+
+fn to_comma_delimited_string<S>(x: &Option<&[&str]>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+{
+    match x {
+        Some(value) => {
+            serializer.serialize_str(&value.join(","))
+        },
+        None => serializer.serialize_none(),
+    }
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
@@ -1369,10 +1382,11 @@ mod test {
     // PocketAddRequest
     #[test]
     fn test_serialize_add_request() {
+        let tags = &["tags"];
         let request = &PocketAddRequest {
             url: &"http://localhost".into_url().unwrap(),
             title: Some("title"),
-            tags: Some("tags"),
+            tags: Some(tags),
             tweet_id: Some("tweet_id"),
         };
 
@@ -1389,7 +1403,7 @@ mod test {
                "#,
             url = request.url,
             title = request.title.unwrap(),
-            tags = request.tags.unwrap(),
+            tags = request.tags.unwrap().join(","),
             tweet_id = request.tweet_id.unwrap(),
         ));
 

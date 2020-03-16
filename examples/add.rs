@@ -14,7 +14,7 @@ fn main() {
         .add(
             &"https://example.com".into_url().unwrap(),
             Some("Example title"),
-            Some("example-tag"),
+            Some(&["example-tag"]),
             Some("example_tweet_id"),
         )
         .unwrap();
