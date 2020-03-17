@@ -612,7 +612,8 @@ pub struct PocketItem {
     #[serde(deserialize_with = "from_str")]
     pub resolved_id: u64,
     pub resolved_title: String,
-    pub resolved_url: String, // not always a valid url
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub resolved_url: Option<Url>,
 
     pub sort_id: u64,
 
@@ -630,9 +631,9 @@ pub struct PocketItem {
     pub domain_metadata: Option<DomainMetaData>,
     pub listen_duration_estimate: Option<u64>,
     pub image: Option<ItemImage>,
-    #[serde(default, with = "url_serde")]
+    #[serde(default, deserialize_with = "try_url_from_string")]
     pub amp_url: Option<Url>,
-    #[serde(default, with = "url_serde")]
+    #[serde(default, deserialize_with = "try_url_from_string")]
     pub top_image_url: Option<Url>,
 }
 
@@ -993,6 +994,14 @@ fn to_comma_delimited_string<S>(x: &Option<&[&str]>, serializer: S) -> Result<S:
         },
         None => serializer.serialize_none(),
     }
+}
+
+fn try_url_from_string<'de, D>(deserializer: D) -> Result<Option<Url>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    let s: String = String::deserialize(deserializer)?;
+    Ok(Url::parse(&s).ok())
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
