@@ -170,6 +170,7 @@ pub struct PocketAuthorizeRequest<'a> {
 pub struct PocketAuthorizeResponse {
     access_token: String,
     username: String,
+    state: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -793,66 +794,67 @@ impl PocketClient {
     }
 }
 
-pub struct PocketAuthRequester {
+pub struct PocketAuthentication {
     consumer_key: String,
+    redirect_uri: String,
     client: PocketClient,
 }
 
-impl PocketAuthRequester {
-    pub fn request(self, redirect_uri: &str) -> PocketResult<PocketAuthorizer> {
+impl PocketAuthentication {
+    pub fn new(consumer_key: &str, redirect_uri: &str) -> PocketAuthentication {
+        PocketAuthentication {
+            consumer_key: consumer_key.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            client: PocketClient::new()
+        }
+    }
+
+    pub fn request(&self, state: Option<&str>) -> PocketResult<String> {
         let body = &PocketOAuthRequest {
             consumer_key: &self.consumer_key,
-            redirect_uri,
-            state: None,
+            redirect_uri: &self.redirect_uri,
+            state,
         };
 
         self.client
             .post("https://getpocket.com/v3/oauth/request", &body)
             .and_then(|r: PocketOAuthResponse| {
-                let url = PocketAuthRequester::authorize_url(redirect_uri, &r.code);
-
-                Ok(PocketAuthorizer {
-                    url,
-                    consumer_key: self.consumer_key,
-                    code: r.code,
-                    client: self.client,
-                })
+                PocketAuthentication::verify_state(state,r.state.as_deref())
+                    .map(|()| r.code)
             })
     }
 
-    fn authorize_url(redirect_uri: &str, code: &str) -> Url {
-        let params = vec![("request_token", code), ("redirect_uri", redirect_uri)];
+    fn verify_state(request_state: Option<&str>, response_state: Option<&str>) -> PocketResult<()> {
+        match (request_state, response_state) {
+            (Some(s1), Some(s2)) if s1 == s2 => Ok(()),
+            (None, None) => Ok(()),
+            _ => Err(PocketError::Proto(0, "State does not match".to_string()))
+        }
+    }
+
+    pub fn authorize_url(&self, code: &str) -> Url {
+        let params = vec![("request_token", code), ("redirect_uri", &self.redirect_uri)];
         let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
         url.query_pairs_mut().extend_pairs(params.into_iter());
         url
     }
-}
 
-pub struct PocketAuthorizer {
-    url: Url,
-    code: String,
-    consumer_key: String,
-    client: PocketClient,
-}
-
-impl PocketAuthorizer {
-    pub fn authorize(self) -> PocketResult<PocketUser> {
+    pub fn authorize(&self, code: &str, state: Option<&str>) -> PocketResult<PocketUser> {
         let body = &PocketAuthorizeRequest {
             consumer_key: &self.consumer_key,
-            code: &self.code,
+            code,
         };
 
         self.client
             .post("https://getpocket.com/v3/oauth/authorize", &body)
-            .map(|r: PocketAuthorizeResponse| PocketUser {
-                consumer_key: self.consumer_key,
-                access_token: r.access_token,
-                username: r.username,
+            .and_then(|r: PocketAuthorizeResponse| {
+                PocketAuthentication::verify_state(state, r.state.as_deref())
+                    .map(|()| PocketUser {
+                        consumer_key: self.consumer_key.clone(),
+                        access_token: r.access_token,
+                        username: r.username,
+                    })
             })
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
     }
 }
 
@@ -880,13 +882,6 @@ impl Pocket {
         Pocket {
             consumer_key: consumer_key.to_string(),
             access_token: access_token.to_string(),
-            client: PocketClient::new(),
-        }
-    }
-
-    pub fn auth(consumer_key: &str) -> PocketAuthRequester {
-        PocketAuthRequester {
-            consumer_key: consumer_key.to_string(),
             client: PocketClient::new(),
         }
     }
@@ -1252,6 +1247,7 @@ mod test {
         let expected = PocketAuthorizeResponse {
             access_token: "access_token".to_string(),
             username: "username".to_string(),
+            state: None,
         };
         let response = remove_whitespace(&format!(
             r#"
