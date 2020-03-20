@@ -21,23 +21,24 @@ extern crate pocket;
 use pocket::Pocket;
 
 fn authenticate() {
-  let auth_requester = Pocket::auth("YOUR-CONSUMER-KEY-HERE");
-  let authorizer = auth_requester.request("rustapi:finishauth").unwrap();
-  println!("Follow auth URL to provide access and press enter when finished: {}", authorizer.url());
+  let auth = PocketAuthentication::new("YOUR-CONSUMER-KEY-HERE", "rustapi:finishauth");
+  let state = None;
+  let code = auth.request(state).unwrap();
+  println!("Follow auth URL to provide access and press enter when finished: {}", auth.authorize_url(code));
   let _ = io::stdin().read_line(&mut String::new());
   
-  let user = authorizer.authorize().unwrap;
+  let user = auth.authorize(code, state).unwrap;
 }
 ```
 
 So you
-1. Initiate auth with ` Pocket::auth()`
-2. Generate OAuth access request URL with `auth_requester.request()`,
+1. Initiate auth with `PocketAuthentication::new()`
+2. Generate OAuth access request URL with `auth.request()`,
 3. Let the user follow the URL and confirm app access
-4. Call `authorizer.authorize()` and either get an error, or the
+4. Call `auth.authorize()` and either get an error, or the
    username and access token of user just authorized.
 
-You can then convert that user into an `Pocket` instance if you choose
+You can then convert that user into an `Pocket` instance if you choose.
 
 ```rust
 let pocket = user.pocket();
