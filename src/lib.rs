@@ -247,8 +247,8 @@ pub struct DomainMetaData {
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 pub struct ItemTag {
     #[serde(deserialize_with = "from_str")]
-    item_id: u64,
-    tag: String,
+    pub item_id: u64,
+    pub tag: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
