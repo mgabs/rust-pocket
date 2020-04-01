@@ -304,8 +304,8 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub extended_item_id: u64,
 
-    #[serde(with = "url_serde")]
-    pub resolved_url: Url,
+    #[serde(deserialize_with = "try_url_from_string")]
+    pub resolved_url: Option<Url>,
 
     #[serde(deserialize_with = "from_str")]
     pub domain_id: u64,
@@ -346,16 +346,20 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "bool_from_int_string")]
     pub used_fallback: bool,
 
-    pub lang: String,
+    #[serde(default)]
+    pub lang: Option<String>,
 
-    #[serde(with = "string_date_unix_timestamp_format")]
-    pub time_first_parsed: DateTime<Utc>,
+    #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
+    pub time_first_parsed: Option<DateTime<Utc>>,
+    #[serde(default)]
     pub authors: Vec<ItemAuthor>,
+    #[serde(default)]
     pub images: Vec<ItemImage>,
+    #[serde(default)]
     pub videos: Vec<ItemVideo>,
 
-    #[serde(with = "url_serde")]
-    pub resolved_normal_url: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub resolved_normal_url: Option<Url>,
 
     #[serde(with = "url_serde")]
     pub given_url: Url,
@@ -1118,13 +1122,16 @@ fn option_string_date_unix_timestamp_format<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    match String::deserialize(deserializer)?.as_str() {
-        "0" => Ok(None),
-        str => str
-            .parse::<i64>()
-            .map(|i| Some(Utc.timestamp(i, 0)))
-            .map_err(serde::de::Error::custom),
-    }
+    Option::deserialize(deserializer)
+        .and_then(|o| {
+            match o {
+                Some("0") | None => Ok(None),
+                Some(str) => str
+                    .parse::<i64>()
+                    .map(|i| Some(Utc.timestamp(i, 0)))
+                    .map_err(serde::de::Error::custom)
+            }
+        })
 }
 
 // inspired by https://serde.rs/custom-date-format.html
@@ -1419,7 +1426,7 @@ mod test {
                 normal_url: "http://example.com".into_url().unwrap(),
                 resolved_id: 2763821,
                 extended_item_id: 2763821,
-                resolved_url: "https://example.com".into_url().unwrap(),
+                resolved_url: "https://example.com".into_url().ok(),
                 domain_id: 85964,
                 origin_domain_id: 51347065,
                 response_code: 200,
@@ -1438,12 +1445,12 @@ mod test {
                 is_index: true,
                 is_article: false,
                 used_fallback: true,
-                lang: "".to_string(),
-                time_first_parsed: Utc.timestamp(0, 0),
+                lang: Some("".to_string()),
+                time_first_parsed: None,
                 authors: vec![],
                 images: vec![],
                 videos: vec![],
-                resolved_normal_url: "http://example.com".into_url().unwrap(),
+                resolved_normal_url: "http://example.com".into_url().ok(),
                 given_url: "https://example.com".into_url().unwrap(),
             },
             status: 1,
@@ -1481,6 +1488,82 @@ mod test {
                     "videos": [],
                     "resolved_normal_url": "http://example.com",
                     "given_url": "https://example.com"
+                },
+                "status": 1
+            }
+       "#;
+
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_deserialize_add_response_unresolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 1933886793,
+                normal_url: "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
+                resolved_id: 0,
+                extended_item_id: 0,
+                resolved_url: None,
+                domain_id: 0,
+                origin_domain_id: 0,
+                response_code: 0,
+                mime_type: "".to_string(),
+                content_length: 0,
+                encoding: "".to_string(),
+                date_resolved: "0000-00-00 00:00:00".to_string(),
+                date_published: "0000-00-00 00:00:00".to_string(),
+                title: "".to_string(),
+                excerpt: "".to_string(),
+                word_count: 0,
+                innerdomain_redirect: false,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: false,
+                is_article: false,
+                used_fallback: false,
+                lang: None,
+                time_first_parsed: None,
+                authors: vec![],
+                images: vec![],
+                videos: vec![],
+                resolved_normal_url: None,
+                given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
+            {
+                "item": {
+                    "item_id": "1933886793",
+                    "normal_url": "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com",
+                    "resolved_id": "0",
+                    "extended_item_id": "0",
+                    "resolved_url": "",
+                    "domain_id": "0",
+                    "origin_domain_id": "0",
+                    "response_code": "0",
+                    "mime_type": "",
+                    "content_length": "0",
+                    "encoding": "",
+                    "date_resolved": "0000-00-00 00:00:00",
+                    "date_published": "0000-00-00 00:00:00",
+                    "title": "",
+                    "excerpt": "",
+                    "word_count": "0",
+                    "innerdomain_redirect": "0",
+                    "login_required": "0",
+                    "has_image": "0",
+                    "has_video": "0",
+                    "is_index": "0",
+                    "is_article": "0",
+                    "used_fallback": "0",
+                    "lang": null,
+                    "time_first_parsed": null,
+                    "given_url": "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
                 },
                 "status": 1
             }
