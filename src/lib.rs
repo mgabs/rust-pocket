@@ -315,7 +315,7 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub response_code: u16,
 
-    pub mime_type: String, // must be Option<Mime>
+    pub mime_type: String, // TODO Option<Mime>
 
     #[serde(deserialize_with = "from_str")]
     pub content_length: usize,
@@ -330,7 +330,8 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub word_count: usize,
 
-    // TODO - innerdomain_redirect 1
+    #[serde(deserialize_with = "bool_from_int_string")]
+    pub innerdomain_redirect: bool,
     #[serde(deserialize_with = "bool_from_int_string")]
     pub login_required: bool,
 
@@ -347,17 +348,20 @@ pub struct PocketAddedItem {
 
     pub lang: String,
 
-    // TODO - time_first_parsed 0
+    #[serde(with = "string_date_unix_timestamp_format")]
+    pub time_first_parsed: DateTime<Utc>,
     pub authors: Vec<ItemAuthor>,
     pub images: Vec<ItemImage>,
-
     pub videos: Vec<ItemVideo>,
+
+    #[serde(with = "url_serde")]
+    pub resolved_normal_url: Url,
 
     #[serde(with = "url_serde")]
     pub given_url: Url,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct PocketAddResponse {
     pub item: PocketAddedItem,
     pub status: u16,
@@ -1265,7 +1269,7 @@ mod test {
         assert_eq!(actual, expected);
     }
 
-    fn remove_whitespace(s: &String) -> String {
+    fn remove_whitespace(s: &str) -> String {
         s.replace(|c: char| c.is_whitespace(), "")
     }
 
@@ -1405,7 +1409,87 @@ mod test {
     }
 
     // PocketAddedItem
+
     // PocketAddResponse
+    #[test]
+    fn test_deserialize_add_response_resolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 2763821,
+                normal_url: "http://example.com".into_url().unwrap(),
+                resolved_id: 2763821,
+                extended_item_id: 2763821,
+                resolved_url: "https://example.com".into_url().unwrap(),
+                domain_id: 85964,
+                origin_domain_id: 51347065,
+                response_code: 200,
+                mime_type: "text/html".to_string(),
+                content_length: 648,
+                encoding: "utf-8".to_string(),
+                date_resolved: "2020-03-03 12:20:37".to_string(),
+                date_published: "0000-00-00 00:00:00".to_string(),
+                title: "Example Domain".to_string(),
+                excerpt: "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...".to_string(),
+                word_count: 28,
+                innerdomain_redirect: true,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: true,
+                is_article: false,
+                used_fallback: true,
+                lang: "".to_string(),
+                time_first_parsed: Utc.timestamp(0, 0),
+                authors: vec![],
+                images: vec![],
+                videos: vec![],
+                resolved_normal_url: "http://example.com".into_url().unwrap(),
+                given_url: "https://example.com".into_url().unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
+            {
+                "item": {
+                    "item_id": "2763821",
+                    "normal_url": "http://example.com",
+                    "resolved_id": "2763821",
+                    "extended_item_id": "2763821",
+                    "resolved_url": "https://example.com",
+                    "domain_id": "85964",
+                    "origin_domain_id": "51347065",
+                    "response_code": "200",
+                    "mime_type": "text/html",
+                    "content_length": "648",
+                    "encoding": "utf-8",
+                    "date_resolved": "2020-03-03 12:20:37",
+                    "date_published": "0000-00-00 00:00:00",
+                    "title": "Example Domain",
+                    "excerpt": "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...",
+                    "word_count": "28",
+                    "innerdomain_redirect": "1",
+                    "login_required": "0",
+                    "has_image": "0",
+                    "has_video": "0",
+                    "is_index": "1",
+                    "is_article": "0",
+                    "used_fallback": "1",
+                    "lang": "",
+                    "time_first_parsed": "0",
+                    "authors": [],
+                    "images": [],
+                    "videos": [],
+                    "resolved_normal_url": "http://example.com",
+                    "given_url": "https://example.com"
+                },
+                "status": 1
+            }
+       "#;
+
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
 
     // PocketGetResponse
     #[test]
