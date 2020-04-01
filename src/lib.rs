@@ -321,8 +321,10 @@ pub struct PocketAddedItem {
     pub content_length: usize,
 
     pub encoding: String,
-    pub date_resolved: String,  // TODO - 2020-03-02 14:51:51
-    pub date_published: String, // TODO - 0000-00-00 00:00:00
+    #[serde(deserialize_with = "option_string_date_format")]
+    pub date_resolved: Option<DateTime<Utc>>,
+    #[serde(deserialize_with = "option_string_date_format")]
+    pub date_published: Option<DateTime<Utc>>,
 
     pub title: String,
     pub excerpt: String,
@@ -1134,6 +1136,22 @@ where
         })
 }
 
+const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+
+fn option_string_date_format<'de, D>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+        match String::deserialize(deserializer)?.as_str() {
+            "0000-00-00 00:00:00" => Ok(None),
+            str => Utc.datetime_from_str(str, FORMAT)
+                .map_err(serde::de::Error::custom)
+                .map(Option::Some)
+        }
+}
+
 // inspired by https://serde.rs/custom-date-format.html
 mod string_date_unix_timestamp_format {
     use chrono::{DateTime, TimeZone, Utc};
@@ -1433,8 +1451,8 @@ mod test {
                 mime_type: "text/html".to_string(),
                 content_length: 648,
                 encoding: "utf-8".to_string(),
-                date_resolved: "2020-03-03 12:20:37".to_string(),
-                date_published: "0000-00-00 00:00:00".to_string(),
+                date_resolved: Utc.datetime_from_str("2020-03-03 12:20:37", FORMAT).ok(),
+                date_published: None,
                 title: "Example Domain".to_string(),
                 excerpt: "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...".to_string(),
                 word_count: 28,
@@ -1513,8 +1531,8 @@ mod test {
                 mime_type: "".to_string(),
                 content_length: 0,
                 encoding: "".to_string(),
-                date_resolved: "0000-00-00 00:00:00".to_string(),
-                date_published: "0000-00-00 00:00:00".to_string(),
+                date_resolved: None,
+                date_published: None,
                 title: "".to_string(),
                 excerpt: "".to_string(),
                 word_count: 0,
