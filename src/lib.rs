@@ -1,7 +1,6 @@
 extern crate chrono;
 extern crate hyper;
 extern crate hyper_native_tls;
-extern crate mime;
 extern crate url;
 
 extern crate serde;
@@ -15,7 +14,7 @@ use hyper::header::parsing::from_one_raw_str;
 use hyper::header::{ContentType, Header, HeaderFormat};
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
-use mime::Mime;
+use hyper::mime::Mime;
 use serde::de::{DeserializeOwned, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -304,8 +303,8 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub extended_item_id: u64,
 
-    #[serde(with = "url_serde")]
-    pub resolved_url: Url,
+    #[serde(deserialize_with = "try_url_from_string")]
+    pub resolved_url: Option<Url>,
 
     #[serde(deserialize_with = "from_str")]
     pub domain_id: u64,
@@ -315,14 +314,17 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub response_code: u16,
 
-    pub mime_type: String, // must be Option<Mime>
+    #[serde(deserialize_with = "option_mime_from_str")]
+    pub mime_type: Option<Mime>,
 
     #[serde(deserialize_with = "from_str")]
     pub content_length: usize,
 
     pub encoding: String,
-    pub date_resolved: String,  // TODO - 2020-03-02 14:51:51
-    pub date_published: String, // TODO - 0000-00-00 00:00:00
+    #[serde(deserialize_with = "option_string_date_format")]
+    pub date_resolved: Option<DateTime<Utc>>,
+    #[serde(deserialize_with = "option_string_date_format")]
+    pub date_published: Option<DateTime<Utc>>,
 
     pub title: String,
     pub excerpt: String,
@@ -330,7 +332,8 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub word_count: usize,
 
-    // TODO - innerdomain_redirect 1
+    #[serde(deserialize_with = "bool_from_int_string")]
+    pub innerdomain_redirect: bool,
     #[serde(deserialize_with = "bool_from_int_string")]
     pub login_required: bool,
 
@@ -345,19 +348,26 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "bool_from_int_string")]
     pub used_fallback: bool,
 
-    pub lang: String,
+    #[serde(default)]
+    pub lang: Option<String>,
 
-    // TODO - time_first_parsed 0
-    pub authors: Vec<ItemAuthor>,
-    pub images: Vec<ItemImage>,
+    #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
+    pub time_first_parsed: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub authors: Option<Vec<ItemAuthor>>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub images: Option<Vec<PocketImage>>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub videos: Option<Vec<ItemVideo>>,
 
-    pub videos: Vec<ItemVideo>,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub resolved_normal_url: Option<Url>,
 
     #[serde(with = "url_serde")]
     pub given_url: Url,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct PocketAddResponse {
     pub item: PocketAddedItem,
     pub status: u16,
@@ -1100,6 +1110,25 @@ where
     serializer.serialize_str("_untagged_")
 }
 
+fn option_mime_from_str<'de, D>(deserializer: D) -> Result<Option<Mime>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    Option::deserialize(deserializer)
+        .and_then(|o| {
+            match o {
+                Some("") | None => Ok(None),
+                Some(str) => str
+                    .parse::<Mime>()
+                    .map(Some)
+                    .map_err(|other| serde::de::Error::invalid_value(
+                        Unexpected::Other(format!("{:?}", other).as_str()),
+                        &"valid mime type",
+                    ))
+            }
+        })
+}
+
 fn int_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
 where
     D: Deserializer<'de>,
@@ -1114,13 +1143,32 @@ fn option_string_date_unix_timestamp_format<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    match String::deserialize(deserializer)?.as_str() {
-        "0" => Ok(None),
-        str => str
-            .parse::<i64>()
-            .map(|i| Some(Utc.timestamp(i, 0)))
-            .map_err(serde::de::Error::custom),
-    }
+    Option::deserialize(deserializer)
+        .and_then(|o| {
+            match o {
+                Some("0") | None => Ok(None),
+                Some(str) => str
+                    .parse::<i64>()
+                    .map(|i| Some(Utc.timestamp(i, 0)))
+                    .map_err(serde::de::Error::custom)
+            }
+        })
+}
+
+const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+
+fn option_string_date_format<'de, D>(
+    deserializer: D,
+) -> Result<Option<DateTime<Utc>>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+        match String::deserialize(deserializer)?.as_str() {
+            "0000-00-00 00:00:00" => Ok(None),
+            str => Utc.datetime_from_str(str, FORMAT)
+                .map_err(serde::de::Error::custom)
+                .map(Option::Some)
+        }
 }
 
 // inspired by https://serde.rs/custom-date-format.html
@@ -1265,7 +1313,7 @@ mod test {
         assert_eq!(actual, expected);
     }
 
-    fn remove_whitespace(s: &String) -> String {
+    fn remove_whitespace(s: &str) -> String {
         s.replace(|c: char| c.is_whitespace(), "")
     }
 
@@ -1405,7 +1453,163 @@ mod test {
     }
 
     // PocketAddedItem
+
     // PocketAddResponse
+    #[test]
+    fn test_deserialize_add_response_resolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 2763821,
+                normal_url: "http://example.com".into_url().unwrap(),
+                resolved_id: 2763821,
+                extended_item_id: 2763821,
+                resolved_url: "https://example.com".into_url().ok(),
+                domain_id: 85964,
+                origin_domain_id: 51347065,
+                response_code: 200,
+                mime_type: "text/html".parse().ok(),
+                content_length: 648,
+                encoding: "utf-8".to_string(),
+                date_resolved: Utc.datetime_from_str("2020-03-03 12:20:37", FORMAT).ok(),
+                date_published: None,
+                title: "Example Domain".to_string(),
+                excerpt: "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...".to_string(),
+                word_count: 28,
+                innerdomain_redirect: true,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: true,
+                is_article: false,
+                used_fallback: true,
+                lang: Some("".to_string()),
+                time_first_parsed: None,
+                authors: Some(vec![]),
+                images: Some(vec![]),
+                videos: Some(vec![]),
+                resolved_normal_url: "http://example.com".into_url().ok(),
+                given_url: "https://example.com".into_url().unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
+            {
+                "item": {
+                    "item_id": "2763821",
+                    "normal_url": "http://example.com",
+                    "resolved_id": "2763821",
+                    "extended_item_id": "2763821",
+                    "resolved_url": "https://example.com",
+                    "domain_id": "85964",
+                    "origin_domain_id": "51347065",
+                    "response_code": "200",
+                    "mime_type": "text/html",
+                    "content_length": "648",
+                    "encoding": "utf-8",
+                    "date_resolved": "2020-03-03 12:20:37",
+                    "date_published": "0000-00-00 00:00:00",
+                    "title": "Example Domain",
+                    "excerpt": "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...",
+                    "word_count": "28",
+                    "innerdomain_redirect": "1",
+                    "login_required": "0",
+                    "has_image": "0",
+                    "has_video": "0",
+                    "is_index": "1",
+                    "is_article": "0",
+                    "used_fallback": "1",
+                    "lang": "",
+                    "time_first_parsed": "0",
+                    "authors": [],
+                    "images": [],
+                    "videos": [],
+                    "resolved_normal_url": "http://example.com",
+                    "given_url": "https://example.com"
+                },
+                "status": 1
+            }
+       "#;
+
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_deserialize_add_response_unresolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 1933886793,
+                normal_url: "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
+                resolved_id: 0,
+                extended_item_id: 0,
+                resolved_url: None,
+                domain_id: 0,
+                origin_domain_id: 0,
+                response_code: 0,
+                mime_type: None,
+                content_length: 0,
+                encoding: "".to_string(),
+                date_resolved: None,
+                date_published: None,
+                title: "".to_string(),
+                excerpt: "".to_string(),
+                word_count: 0,
+                innerdomain_redirect: false,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: false,
+                is_article: false,
+                used_fallback: false,
+                lang: None,
+                time_first_parsed: None,
+                authors: None,
+                images: None,
+                videos: None,
+                resolved_normal_url: None,
+                given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
+            {
+                "item": {
+                    "item_id": "1933886793",
+                    "normal_url": "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com",
+                    "resolved_id": "0",
+                    "extended_item_id": "0",
+                    "resolved_url": "",
+                    "domain_id": "0",
+                    "origin_domain_id": "0",
+                    "response_code": "0",
+                    "mime_type": "",
+                    "content_length": "0",
+                    "encoding": "",
+                    "date_resolved": "0000-00-00 00:00:00",
+                    "date_published": "0000-00-00 00:00:00",
+                    "title": "",
+                    "excerpt": "",
+                    "word_count": "0",
+                    "innerdomain_redirect": "0",
+                    "login_required": "0",
+                    "has_image": "0",
+                    "has_video": "0",
+                    "is_index": "0",
+                    "is_article": "0",
+                    "used_fallback": "0",
+                    "lang": null,
+                    "time_first_parsed": null,
+                    "given_url": "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
+                },
+                "status": 1
+            }
+       "#;
+
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
 
     // PocketGetResponse
     #[test]
