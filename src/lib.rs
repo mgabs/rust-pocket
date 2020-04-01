@@ -1,7 +1,6 @@
 extern crate chrono;
 extern crate hyper;
 extern crate hyper_native_tls;
-extern crate mime;
 extern crate url;
 
 extern crate serde;
@@ -15,7 +14,7 @@ use hyper::header::parsing::from_one_raw_str;
 use hyper::header::{ContentType, Header, HeaderFormat};
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
-use mime::Mime;
+use hyper::mime::Mime;
 use serde::de::{DeserializeOwned, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -315,7 +314,8 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub response_code: u16,
 
-    pub mime_type: String, // TODO Option<Mime>
+    #[serde(deserialize_with = "option_mime_from_str")]
+    pub mime_type: Option<Mime>,
 
     #[serde(deserialize_with = "from_str")]
     pub content_length: usize,
@@ -1110,6 +1110,25 @@ where
     serializer.serialize_str("_untagged_")
 }
 
+fn option_mime_from_str<'de, D>(deserializer: D) -> Result<Option<Mime>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    Option::deserialize(deserializer)
+        .and_then(|o| {
+            match o {
+                Some("") | None => Ok(None),
+                Some(str) => str
+                    .parse::<Mime>()
+                    .map(Some)
+                    .map_err(|other| serde::de::Error::invalid_value(
+                        Unexpected::Other(format!("{:?}", other).as_str()),
+                        &"valid mime type",
+                    ))
+            }
+        })
+}
+
 fn int_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
 where
     D: Deserializer<'de>,
@@ -1448,7 +1467,7 @@ mod test {
                 domain_id: 85964,
                 origin_domain_id: 51347065,
                 response_code: 200,
-                mime_type: "text/html".to_string(),
+                mime_type: "text/html".parse().ok(),
                 content_length: 648,
                 encoding: "utf-8".to_string(),
                 date_resolved: Utc.datetime_from_str("2020-03-03 12:20:37", FORMAT).ok(),
@@ -1528,7 +1547,7 @@ mod test {
                 domain_id: 0,
                 origin_domain_id: 0,
                 response_code: 0,
-                mime_type: "".to_string(),
+                mime_type: None,
                 content_length: 0,
                 encoding: "".to_string(),
                 date_resolved: None,
