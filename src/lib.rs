@@ -351,12 +351,12 @@ pub struct PocketAddedItem {
 
     #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
     pub time_first_parsed: Option<DateTime<Utc>>,
-    #[serde(default)]
-    pub authors: Vec<ItemAuthor>,
-    #[serde(default)]
-    pub images: Vec<ItemImage>,
-    #[serde(default)]
-    pub videos: Vec<ItemVideo>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub authors: Option<Vec<ItemAuthor>>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub images: Option<Vec<PocketImage>>,
+    #[serde(default, deserialize_with = "optional_vec_from_map")]
+    pub videos: Option<Vec<ItemVideo>>,
 
     #[serde(default, deserialize_with = "try_url_from_string")]
     pub resolved_normal_url: Option<Url>,
@@ -1447,9 +1447,9 @@ mod test {
                 used_fallback: true,
                 lang: Some("".to_string()),
                 time_first_parsed: None,
-                authors: vec![],
-                images: vec![],
-                videos: vec![],
+                authors: Some(vec![]),
+                images: Some(vec![]),
+                videos: Some(vec![]),
                 resolved_normal_url: "http://example.com".into_url().ok(),
                 given_url: "https://example.com".into_url().unwrap(),
             },
@@ -1527,9 +1527,9 @@ mod test {
                 used_fallback: false,
                 lang: None,
                 time_first_parsed: None,
-                authors: vec![],
-                images: vec![],
-                videos: vec![],
+                authors: None,
+                images: None,
+                videos: None,
                 resolved_normal_url: None,
                 given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
             },
