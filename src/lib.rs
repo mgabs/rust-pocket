@@ -314,7 +314,7 @@ pub struct PocketAddedItem {
     #[serde(deserialize_with = "from_str")]
     pub response_code: u16,
 
-    #[serde(deserialize_with = "option_mime_from_str")]
+    #[serde(deserialize_with = "option_mime_from_string")]
     pub mime_type: Option<Mime>,
 
     #[serde(deserialize_with = "from_str")]
@@ -1110,13 +1110,13 @@ where
     serializer.serialize_str("_untagged_")
 }
 
-fn option_mime_from_str<'de, D>(deserializer: D) -> Result<Option<Mime>, D::Error>
+fn option_mime_from_string<'de, D>(deserializer: D) -> Result<Option<Mime>, D::Error>
     where
         D: Deserializer<'de>,
 {
     Option::deserialize(deserializer)
-        .and_then(|o| {
-            match o {
+        .and_then(|o: Option<String>| {
+            match o.as_ref().map(|s| s.as_str()) {
                 Some("") | None => Ok(None),
                 Some(str) => str
                     .parse::<Mime>()
@@ -1144,8 +1144,8 @@ where
     D: Deserializer<'de>,
 {
     Option::deserialize(deserializer)
-        .and_then(|o| {
-            match o {
+        .and_then(|o: Option<String>| {
+            match o.as_ref().map(|s| s.as_str()) {
                 Some("0") | None => Ok(None),
                 Some(str) => str
                     .parse::<i64>()
