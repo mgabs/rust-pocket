@@ -228,8 +228,8 @@ pub struct PocketImage {
 pub struct ItemImage {
     #[serde(deserialize_with = "from_str")]
     pub item_id: u64,
-    #[serde(with = "url_serde")]
-    pub src: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub src: Option<Url>,
     #[serde(deserialize_with = "from_str")]
     pub width: u16,
     #[serde(deserialize_with = "from_str")]
