@@ -593,8 +593,8 @@ pub struct PocketItem {
     #[serde(deserialize_with = "from_str")]
     pub item_id: u64,
 
-    #[serde(with = "url_serde")]
-    pub given_url: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub given_url: Option<Url>,
     pub given_title: String,
 
     #[serde(deserialize_with = "from_str")]
