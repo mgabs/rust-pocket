@@ -956,7 +956,7 @@ where
     D: Deserializer<'de>,
 {
     let result: Result<T, D::Error> = from_str(deserializer);
-    result.map(Option::from)
+    Ok(result.ok())
 }
 
 // https://github.com/serde-rs/json/issues/317
