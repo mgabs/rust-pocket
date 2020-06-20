@@ -1005,8 +1005,8 @@ fn try_url_from_string<'de, D>(deserializer: D) -> Result<Option<Url>, D::Error>
     where
         D: Deserializer<'de>,
 {
-    let s: String = String::deserialize(deserializer)?;
-    Ok(Url::parse(&s).ok())
+    let o: Option<String> = Option::deserialize(deserializer)?;
+    Ok(o.and_then(|s| Url::parse(&s).ok()))
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
