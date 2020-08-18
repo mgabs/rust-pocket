@@ -1393,7 +1393,7 @@ mod test {
     fn test_deserialize_item_image() {
         let expected = ItemImage {
             item_id: 1,
-            src: "http://localhost".into_url().unwrap(),
+            src: "http://localhost".into_url().ok(),
             width: 3,
             height: 4,
         };
@@ -1407,7 +1407,7 @@ mod test {
                     }}
                "#,
             item_id = expected.item_id,
-            src = expected.src,
+            src = expected.src.as_ref().unwrap(),
             width = expected.width,
             height = expected.height,
         ));
