@@ -1,12 +1,3 @@
-extern crate chrono;
-extern crate hyper;
-extern crate hyper_native_tls;
-extern crate url;
-
-extern crate serde;
-extern crate serde_derive;
-extern crate serde_json;
-
 use chrono::{DateTime, TimeZone, Utc};
 use hyper::client::{Client, IntoUrl, RequestBuilder};
 use hyper::error::Error as HttpError;
