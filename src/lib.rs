@@ -1107,7 +1107,7 @@ fn option_mime_from_string<'de, D>(deserializer: D) -> Result<Option<Mime>, D::E
 {
     Option::deserialize(deserializer)
         .and_then(|o: Option<String>| {
-            match o.as_ref().map(|s| s.as_str()) {
+            match o.as_deref() {
                 Some("") | None => Ok(None),
                 Some(str) => str
                     .parse::<Mime>()
@@ -1136,7 +1136,7 @@ where
 {
     Option::deserialize(deserializer)
         .and_then(|o: Option<String>| {
-            match o.as_ref().map(|s| s.as_str()) {
+            match o.as_deref() {
                 Some("0") | None => Ok(None),
                 Some(str) => str
                     .parse::<i64>()
@@ -1146,7 +1146,7 @@ where
         })
 }
 
-const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
 fn option_string_date_format<'de, D>(
     deserializer: D,
