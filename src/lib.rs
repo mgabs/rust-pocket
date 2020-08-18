@@ -214,8 +214,8 @@ pub struct PocketImage {
     pub item_id: u64,
     #[serde(deserialize_with = "from_str")]
     pub image_id: u64,
-    #[serde(with = "url_serde")]
-    pub src: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub src: Option<Url>,
     #[serde(deserialize_with = "from_str")]
     pub width: u16,
     #[serde(deserialize_with = "from_str")]
@@ -228,8 +228,8 @@ pub struct PocketImage {
 pub struct ItemImage {
     #[serde(deserialize_with = "from_str")]
     pub item_id: u64,
-    #[serde(with = "url_serde")]
-    pub src: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub src: Option<Url>,
     #[serde(deserialize_with = "from_str")]
     pub width: u16,
     #[serde(deserialize_with = "from_str")]
@@ -256,8 +256,8 @@ pub struct ItemVideo {
     pub item_id: u64,
     #[serde(deserialize_with = "from_str")]
     pub video_id: u64,
-    #[serde(with = "url_serde")]
-    pub src: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub src: Option<Url>,
     #[serde(deserialize_with = "from_str")]
     pub width: u16,
     #[serde(deserialize_with = "from_str")]
@@ -593,8 +593,8 @@ pub struct PocketItem {
     #[serde(deserialize_with = "from_str")]
     pub item_id: u64,
 
-    #[serde(with = "url_serde")]
-    pub given_url: Url,
+    #[serde(default, deserialize_with = "try_url_from_string")]
+    pub given_url: Option<Url>,
     pub given_title: String,
 
     #[serde(deserialize_with = "from_str")]
@@ -956,7 +956,7 @@ where
     D: Deserializer<'de>,
 {
     let result: Result<T, D::Error> = from_str(deserializer);
-    result.map(Option::from)
+    Ok(result.ok())
 }
 
 // https://github.com/serde-rs/json/issues/317
@@ -1005,8 +1005,8 @@ fn try_url_from_string<'de, D>(deserializer: D) -> Result<Option<Url>, D::Error>
     where
         D: Deserializer<'de>,
 {
-    let s: String = String::deserialize(deserializer)?;
-    Ok(Url::parse(&s).ok())
+    let o: Option<String> = Option::deserialize(deserializer)?;
+    Ok(o.and_then(|s| Url::parse(&s).ok()))
 }
 
 fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
