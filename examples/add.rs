@@ -12,10 +12,11 @@ fn main() {
 
     let url = "https://example.com".into_url().unwrap();
     let item = pocket
-        .add(&PocketAddRequest::new(&url)
-            .title("Example title")
-            .tags(&["example-tag"])
-            .tweet_id("example_tweet_id")
+        .add(
+            &PocketAddRequest::new(&url)
+                .title("Example title")
+                .tags(&["example-tag"])
+                .tweet_id("example_tweet_id"),
         )
         .unwrap();
     println!("item: {:?}", item);

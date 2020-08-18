@@ -1,20 +1,11 @@
-extern crate chrono;
-extern crate hyper;
-extern crate hyper_native_tls;
-extern crate url;
-
-extern crate serde;
-extern crate serde_derive;
-extern crate serde_json;
-
 use chrono::{DateTime, TimeZone, Utc};
 use hyper::client::{Client, IntoUrl, RequestBuilder};
 use hyper::error::Error as HttpError;
 use hyper::header::parsing::from_one_raw_str;
 use hyper::header::{ContentType, Header, HeaderFormat};
+use hyper::mime::Mime;
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
-use hyper::mime::Mime;
 use serde::de::{DeserializeOwned, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -188,7 +179,7 @@ impl<'a> PocketAddRequest<'a> {
             url,
             title: None,
             tags: None,
-            tweet_id: None
+            tweet_id: None,
         }
     }
 
@@ -815,7 +806,7 @@ impl PocketAuthentication {
         PocketAuthentication {
             consumer_key: consumer_key.to_string(),
             redirect_uri: redirect_uri.to_string(),
-            client: PocketClient::new()
+            client: PocketClient::new(),
         }
     }
 
@@ -829,8 +820,7 @@ impl PocketAuthentication {
         self.client
             .post("https://getpocket.com/v3/oauth/request", &body)
             .and_then(|r: PocketOAuthResponse| {
-                PocketAuthentication::verify_state(state,r.state.as_deref())
-                    .map(|()| r.code)
+                PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| r.code)
             })
     }
 
@@ -838,12 +828,15 @@ impl PocketAuthentication {
         match (request_state, response_state) {
             (Some(s1), Some(s2)) if s1 == s2 => Ok(()),
             (None, None) => Ok(()),
-            _ => Err(PocketError::Proto(0, "State does not match".to_string()))
+            _ => Err(PocketError::Proto(0, "State does not match".to_string())),
         }
     }
 
     pub fn authorize_url(&self, code: &str) -> Url {
-        let params = vec![("request_token", code), ("redirect_uri", &self.redirect_uri)];
+        let params = vec![
+            ("request_token", code),
+            ("redirect_uri", &self.redirect_uri),
+        ];
         let mut url = Url::parse("https://getpocket.com/auth/authorize").unwrap();
         url.query_pairs_mut().extend_pairs(params.into_iter());
         url
@@ -858,12 +851,11 @@ impl PocketAuthentication {
         self.client
             .post("https://getpocket.com/v3/oauth/authorize", &body)
             .and_then(|r: PocketAuthorizeResponse| {
-                PocketAuthentication::verify_state(state, r.state.as_deref())
-                    .map(|()| PocketUser {
-                        consumer_key: self.consumer_key.clone(),
-                        access_token: r.access_token,
-                        username: r.username,
-                    })
+                PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| PocketUser {
+                    consumer_key: self.consumer_key.clone(),
+                    access_token: r.access_token,
+                    username: r.username,
+                })
             })
     }
 }
@@ -990,20 +982,18 @@ where
 }
 
 fn to_comma_delimited_string<S>(x: &Option<&[&str]>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     match x {
-        Some(value) => {
-            serializer.serialize_str(&value.join(","))
-        },
+        Some(value) => serializer.serialize_str(&value.join(",")),
         None => serializer.serialize_none(),
     }
 }
 
 fn try_url_from_string<'de, D>(deserializer: D) -> Result<Option<Url>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let o: Option<String> = Option::deserialize(deserializer)?;
     Ok(o.and_then(|s| Url::parse(&s).ok()))
@@ -1111,22 +1101,18 @@ where
 }
 
 fn option_mime_from_string<'de, D>(deserializer: D) -> Result<Option<Mime>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
-    Option::deserialize(deserializer)
-        .and_then(|o: Option<String>| {
-            match o.as_ref().map(|s| s.as_str()) {
-                Some("") | None => Ok(None),
-                Some(str) => str
-                    .parse::<Mime>()
-                    .map(Some)
-                    .map_err(|other| serde::de::Error::invalid_value(
-                        Unexpected::Other(format!("{:?}", other).as_str()),
-                        &"valid mime type",
-                    ))
-            }
-        })
+    Option::deserialize(deserializer).and_then(|o: Option<String>| match o.as_deref() {
+        Some("") | None => Ok(None),
+        Some(str) => str.parse::<Mime>().map(Some).map_err(|other| {
+            serde::de::Error::invalid_value(
+                Unexpected::Other(format!("{:?}", other).as_str()),
+                &"valid mime type",
+            )
+        }),
+    })
 }
 
 fn int_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
@@ -1143,32 +1129,28 @@ fn option_string_date_unix_timestamp_format<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    Option::deserialize(deserializer)
-        .and_then(|o: Option<String>| {
-            match o.as_ref().map(|s| s.as_str()) {
-                Some("0") | None => Ok(None),
-                Some(str) => str
-                    .parse::<i64>()
-                    .map(|i| Some(Utc.timestamp(i, 0)))
-                    .map_err(serde::de::Error::custom)
-            }
-        })
+    Option::deserialize(deserializer).and_then(|o: Option<String>| match o.as_deref() {
+        Some("0") | None => Ok(None),
+        Some(str) => str
+            .parse::<i64>()
+            .map(|i| Some(Utc.timestamp(i, 0)))
+            .map_err(serde::de::Error::custom),
+    })
 }
 
-const FORMAT: &'static str = "%Y-%m-%d %H:%M:%S";
+const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
-fn option_string_date_format<'de, D>(
-    deserializer: D,
-) -> Result<Option<DateTime<Utc>>, D::Error>
-    where
-        D: Deserializer<'de>,
+fn option_string_date_format<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
 {
-        match String::deserialize(deserializer)?.as_str() {
-            "0000-00-00 00:00:00" => Ok(None),
-            str => Utc.datetime_from_str(str, FORMAT)
-                .map_err(serde::de::Error::custom)
-                .map(Option::Some)
-        }
+    match String::deserialize(deserializer)?.as_str() {
+        "0000-00-00 00:00:00" => Ok(None),
+        str => Utc
+            .datetime_from_str(str, FORMAT)
+            .map_err(serde::de::Error::custom)
+            .map(Option::Some),
+    }
 }
 
 // inspired by https://serde.rs/custom-date-format.html
@@ -1207,8 +1189,8 @@ where
 }
 
 fn borrow_url<S>(x: &Url, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     serializer.serialize_str(x.as_str())
 }
@@ -1540,7 +1522,9 @@ mod test {
         let expected = PocketAddResponse {
             item: PocketAddedItem {
                 item_id: 1933886793,
-                normal_url: "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
+                normal_url: "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
+                    .into_url()
+                    .unwrap(),
                 resolved_id: 0,
                 extended_item_id: 0,
                 resolved_url: None,
@@ -1568,7 +1552,9 @@ mod test {
                 images: None,
                 videos: None,
                 resolved_normal_url: None,
-                given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com".into_url().unwrap(),
+                given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
+                    .into_url()
+                    .unwrap(),
             },
             status: 1,
         };
@@ -1641,7 +1627,6 @@ mod test {
             complete = if expected.complete { 1 } else { 0 },
             search_type = expected.search_meta.search_type,
             since = expected.since.timestamp(),
-
         ));
 
         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();

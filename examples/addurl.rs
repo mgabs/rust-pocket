@@ -7,7 +7,7 @@ use std::time::Instant;
 fn main() {
     let auth = PocketAuthentication::new(
         &std::env::var("POCKET_CONSUMER_KEY").unwrap(),
-        "rustapi:finishauth"
+        "rustapi:finishauth",
     );
     let state = Some(format!("{:?}", Instant::now()));
     let code = auth.request(state.as_deref()).unwrap();
