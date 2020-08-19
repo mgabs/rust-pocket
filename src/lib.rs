@@ -853,7 +853,7 @@ impl Pocket {
         &self.access_token
     }
 
-    pub async fn add<'a>(&self, request: &'a PocketAddRequest<'a>) -> PocketResult<PocketAddedItem> {
+    pub async fn add(&self, request: &PocketAddRequest<'_>) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
@@ -866,20 +866,20 @@ impl Pocket {
             .await
     }
 
-    pub fn get(&self, request: &PocketGetRequest) -> PocketResult<Vec<PocketItem>> {
+    pub async fn get(&self, request: &PocketGetRequest<'_>) -> PocketResult<Vec<PocketItem>> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
             request,
         };
 
-        todo!();
-        // self.client
-        //     .post("https://getpocket.com/v3/get", &body)
-        //     .map(|v: PocketGetResponse| v.list)
+        self.client
+            .post("https://getpocket.com/v3/get", &body)
+            .map_ok(|v: PocketGetResponse| v.list)
+            .await
     }
 
-    pub async fn send<'a>(&self, request: &'a PocketSendRequest<'a>) -> PocketResult<PocketSendResponse> {
+    pub async fn send(&self, request: &PocketSendRequest<'_>) -> PocketResult<PocketSendResponse> {
         let data = serde_json::to_string(request.actions)?;
         let params = &[
             ("consumer_key", &*self.consumer_key),
