@@ -692,7 +692,7 @@ impl PocketClient {
     async fn get<T, Resp>(&self, url: T) -> PocketResult<Resp> 
     where
         Uri: TryFrom<T>,
-        <Uri as TryFrom<T>>::Error: Into<http::Error>,
+        <Uri as TryFrom<T>>::Error: Into<hyper::http::Error>,
         Resp: DeserializeOwned
     {
         let request = Request::builder()
@@ -709,7 +709,7 @@ impl PocketClient {
     ) -> PocketResult<Resp> 
     where
         Uri: TryFrom<T>,
-        <Uri as TryFrom<T>>::Error: Into<http::Error>,
+        <Uri as TryFrom<T>>::Error: Into<hyper::http::Error>,
         B: Serialize, 
         Resp: DeserializeOwned
     {
