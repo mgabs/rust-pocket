@@ -895,11 +895,6 @@ impl Pocket {
         self.client.get(url_to_uri(&url).unwrap()).await
     }
 
-    #[inline]
-    pub async fn push<T: Into<Url>>(&self, url: T) -> PocketResult<PocketAddedItem> {
-        self.add(&PocketAddRequest::new(&url.into())).await
-    }
-
     pub fn filter(&self) -> PocketGetRequest {
         PocketGetRequest::new()
     }
