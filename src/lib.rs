@@ -1158,481 +1158,479 @@ where
     serializer.serialize_str(x.as_str())
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use serde::Serialize;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use serde::Serialize;
 
-//     // Auth
-//     #[test]
-//     fn test_serialize_auth_request() {
-//         let request = &PocketOAuthRequest {
-//             consumer_key: "consumer_key",
-//             redirect_uri: "http://localhost",
-//             state: Some("state"),
-//         };
+    // Auth
+    #[test]
+    fn test_serialize_auth_request() {
+        let request = &PocketOAuthRequest {
+            consumer_key: "consumer_key",
+            redirect_uri: "http://localhost",
+            state: Some("state"),
+        };
 
-//         let actual = serde_json::to_string(request).unwrap();
+        let actual = serde_json::to_string(request).unwrap();
 
-//         let expected = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "consumer_key": "{consumer_key}",
-//                         "redirect_uri": "{redirect_uri}",
-//                         "state": "{state}"
-//                     }}
-//                "#,
-//             consumer_key = request.consumer_key,
-//             redirect_uri = request.redirect_uri,
-//             state = request.state.unwrap()
-//         ));
+        let expected = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "consumer_key": "{consumer_key}",
+                        "redirect_uri": "{redirect_uri}",
+                        "state": "{state}"
+                    }}
+               "#,
+            consumer_key = request.consumer_key,
+            redirect_uri = request.redirect_uri,
+            state = request.state.unwrap()
+        ));
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     #[test]
-//     fn test_deserialize_auth_response() {
-//         let expected = PocketOAuthResponse {
-//             code: "code".to_string(),
-//             state: Some("state".to_string()),
-//         };
-//         let response = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "code": "{code}",
-//                         "state": "{state}"
-//                     }}
-//                "#,
-//             code = expected.code,
-//             state = expected.state.as_ref().unwrap()
-//         ));
+    #[test]
+    fn test_deserialize_auth_response() {
+        let expected = PocketOAuthResponse {
+            code: "code".to_string(),
+            state: Some("state".to_string()),
+        };
+        let response = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "code": "{code}",
+                        "state": "{state}"
+                    }}
+               "#,
+            code = expected.code,
+            state = expected.state.as_ref().unwrap()
+        ));
 
-//         let actual: PocketOAuthResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketOAuthResponse = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     #[test]
-//     fn test_serialize_authorize_request() {
-//         let request = &PocketAuthorizeRequest {
-//             consumer_key: "consumer_key",
-//             code: "code",
-//         };
+    #[test]
+    fn test_serialize_authorize_request() {
+        let request = &PocketAuthorizeRequest {
+            consumer_key: "consumer_key",
+            code: "code",
+        };
 
-//         let actual = serde_json::to_string(request).unwrap();
+        let actual = serde_json::to_string(request).unwrap();
 
-//         let expected = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "consumer_key": "{consumer_key}",
-//                         "code": "{code}"
-//                     }}
-//                "#,
-//             consumer_key = request.consumer_key,
-//             code = request.code
-//         ));
+        let expected = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "consumer_key": "{consumer_key}",
+                        "code": "{code}"
+                    }}
+               "#,
+            consumer_key = request.consumer_key,
+            code = request.code
+        ));
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     #[test]
-//     fn test_deserialize_authorize_response() {
-//         let expected = PocketAuthorizeResponse {
-//             access_token: "access_token".to_string(),
-//             username: "username".to_string(),
-//             state: None,
-//         };
-//         let response = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "access_token": "{access_token}",
-//                         "username": "{username}"
-//                     }}
-//                "#,
-//             access_token = expected.access_token,
-//             username = expected.username
-//         ));
+    #[test]
+    fn test_deserialize_authorize_response() {
+        let expected = PocketAuthorizeResponse {
+            access_token: "access_token".to_string(),
+            username: "username".to_string(),
+            state: None,
+        };
+        let response = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "access_token": "{access_token}",
+                        "username": "{username}"
+                    }}
+               "#,
+            access_token = expected.access_token,
+            username = expected.username
+        ));
 
-//         let actual: PocketAuthorizeResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketAuthorizeResponse = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     fn remove_whitespace(s: &str) -> String {
-//         s.replace(|c: char| c.is_whitespace(), "")
-//     }
+    fn remove_whitespace(s: &str) -> String {
+        s.replace(|c: char| c.is_whitespace(), "")
+    }
 
-//     // Get
-//     // PocketGetRequest
-//     #[test]
-//     fn test_serialize_get_request() {
-//         let request = &PocketGetRequest {
-//             search: Some("search"),
-//             domain: Some("domain"),
+    // Get
+    // PocketGetRequest
+    #[test]
+    fn test_serialize_get_request() {
+        let request = &PocketGetRequest {
+            search: Some("search"),
+            domain: Some("domain"),
 
-//             tag: Some(PocketGetTag::Untagged),
-//             state: Some(PocketGetState::All),
-//             content_type: Some(PocketGetType::Article),
-//             detail_type: Some(PocketGetDetail::Complete),
-//             favorite: Some(false),
-//             since: Some(Utc::now()),
+            tag: Some(PocketGetTag::Untagged),
+            state: Some(PocketGetState::All),
+            content_type: Some(PocketGetType::Article),
+            detail_type: Some(PocketGetDetail::Complete),
+            favorite: Some(false),
+            since: Some(Utc::now()),
 
-//             sort: Some(PocketGetSort::Newest),
-//             count: Some(1),
-//             offset: Some(2),
-//         };
+            sort: Some(PocketGetSort::Newest),
+            count: Some(1),
+            offset: Some(2),
+        };
 
-//         let actual = serde_json::to_string(request).unwrap();
+        let actual = serde_json::to_string(request).unwrap();
 
-//         let expected = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "search": "{search}",
-//                         "domain": "{domain}",
-//                         "tag": "{tag}",
-//                         "state": "{state}",
-//                         "contentType": "{content_type}",
-//                         "detailType": "{detail_type}",
-//                         "favorite": "{favorite}",
-//                         "since": "{since}",
-//                         "sort": "{sort}",
-//                         "count": "{count}",
-//                         "offset": "{offset}"
-//                     }}
-//                "#,
-//             search = request.search.unwrap(),
-//             domain = request.domain.unwrap(),
-//             tag = to_inner_json_string(&request.tag.as_ref()),
-//             state = to_inner_json_string(&request.state.unwrap()),
-//             content_type = to_inner_json_string(&request.content_type.unwrap()),
-//             detail_type = to_inner_json_string(&request.detail_type.unwrap()),
-//             favorite = if request.favorite.unwrap() { 1 } else { 0 },
-//             since = request.since.unwrap().timestamp().to_string(),
-//             sort = to_inner_json_string(&request.sort.unwrap()),
-//             count = request.count.unwrap(),
-//             offset = request.offset.unwrap(),
-//         ));
+        let expected = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "search": "{search}",
+                        "domain": "{domain}",
+                        "tag": "{tag}",
+                        "state": "{state}",
+                        "contentType": "{content_type}",
+                        "detailType": "{detail_type}",
+                        "favorite": "{favorite}",
+                        "since": "{since}",
+                        "sort": "{sort}",
+                        "count": "{count}",
+                        "offset": "{offset}"
+                    }}
+               "#,
+            search = request.search.unwrap(),
+            domain = request.domain.unwrap(),
+            tag = to_inner_json_string(&request.tag.as_ref()),
+            state = to_inner_json_string(&request.state.unwrap()),
+            content_type = to_inner_json_string(&request.content_type.unwrap()),
+            detail_type = to_inner_json_string(&request.detail_type.unwrap()),
+            favorite = if request.favorite.unwrap() { 1 } else { 0 },
+            since = request.since.unwrap().timestamp().to_string(),
+            sort = to_inner_json_string(&request.sort.unwrap()),
+            count = request.count.unwrap(),
+            offset = request.offset.unwrap(),
+        ));
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     fn to_inner_json_string<T: Serialize>(value: T) -> String {
-//         serde_json::to_value(value)
-//             .unwrap()
-//             .as_str()
-//             .unwrap()
-//             .trim_matches('\"')
-//             .to_string()
-//     }
+    fn to_inner_json_string<T: Serialize>(value: T) -> String {
+        serde_json::to_value(value)
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .trim_matches('\"')
+            .to_string()
+    }
 
-//     // PocketGetDetail
-//     // PocketGetSort
-//     // PocketGetState
-//     // PocketGetTag
-//     // PocketGetType
-//     // ItemVideo
-//     // PocketItemHas
+    // PocketGetDetail
+    // PocketGetSort
+    // PocketGetState
+    // PocketGetTag
+    // PocketGetType
+    // ItemVideo
+    // PocketItemHas
 
-//     // ItemImage
-//     #[test]
-//     fn test_deserialize_item_image() {
-//         let expected = ItemImage {
-//             item_id: 1,
-//             src: "http://localhost".into_url().ok(),
-//             width: 3,
-//             height: 4,
-//         };
-//         let response = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "item_id": "{item_id}",
-//                         "src": "{src}",
-//                         "width": "{width}",
-//                         "height": "{height}"
-//                     }}
-//                "#,
-//             item_id = expected.item_id,
-//             src = expected.src.as_ref().unwrap(),
-//             width = expected.width,
-//             height = expected.height,
-//         ));
+    // ItemImage
+    #[test]
+    fn test_deserialize_item_image() {
+        let expected = ItemImage {
+            item_id: 1,
+            src: Url::parse("http://localhost").ok(),
+            width: 3,
+            height: 4,
+        };
+        let response = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "item_id": "{item_id}",
+                        "src": "{src}",
+                        "width": "{width}",
+                        "height": "{height}"
+                    }}
+               "#,
+            item_id = expected.item_id,
+            src = expected.src.as_ref().unwrap(),
+            width = expected.width,
+            height = expected.height,
+        ));
 
-//         let actual: ItemImage = serde_json::from_str(&response).unwrap();
+        let actual: ItemImage = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     // PocketSendAction
-//     // PocketSendRequest
-//     // PocketSendResponse
+    // PocketSendAction
+    // PocketSendRequest
+    // PocketSendResponse
 
-//     // PocketAddRequest
-//     #[test]
-//     fn test_serialize_add_request() {
-//         let tags = &["tags"];
-//         let request = &PocketAddRequest {
-//             url: &"http://localhost".into_url().unwrap(),
-//             title: Some("title"),
-//             tags: Some(tags),
-//             tweet_id: Some("tweet_id"),
-//         };
+    // PocketAddRequest
+    #[test]
+    fn test_serialize_add_request() {
+        let tags = &["tags"];
+        let request = &PocketAddRequest {
+            url: &Url::parse("http://localhost").unwrap(),
+            title: Some("title"),
+            tags: Some(tags),
+            tweet_id: Some("tweet_id"),
+        };
 
-//         let actual = serde_json::to_string(request).unwrap();
+        let actual = serde_json::to_string(request).unwrap();
 
-//         let expected = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "url": "{url}",
-//                         "title": "{title}",
-//                         "tags": "{tags}",
-//                         "tweet_id": "{tweet_id}"
-//                     }}
-//                "#,
-//             url = request.url,
-//             title = request.title.unwrap(),
-//             tags = request.tags.unwrap().join(","),
-//             tweet_id = request.tweet_id.unwrap(),
-//         ));
+        let expected = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "url": "{url}",
+                        "title": "{title}",
+                        "tags": "{tags}",
+                        "tweet_id": "{tweet_id}"
+                    }}
+               "#,
+            url = request.url,
+            title = request.title.unwrap(),
+            tags = request.tags.unwrap().join(","),
+            tweet_id = request.tweet_id.unwrap(),
+        ));
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     // PocketAddedItem
+    // PocketAddedItem
 
-//     // PocketAddResponse
-//     #[test]
-//     fn test_deserialize_add_response_resolved_url() {
-//         let expected = PocketAddResponse {
-//             item: PocketAddedItem {
-//                 item_id: 2763821,
-//                 normal_url: "http://example.com".into_url().unwrap(),
-//                 resolved_id: 2763821,
-//                 extended_item_id: 2763821,
-//                 resolved_url: "https://example.com".into_url().ok(),
-//                 domain_id: 85964,
-//                 origin_domain_id: 51347065,
-//                 response_code: 200,
-//                 mime_type: "text/html".parse().ok(),
-//                 content_length: 648,
-//                 encoding: "utf-8".to_string(),
-//                 date_resolved: Utc.datetime_from_str("2020-03-03 12:20:37", FORMAT).ok(),
-//                 date_published: None,
-//                 title: "Example Domain".to_string(),
-//                 excerpt: "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...".to_string(),
-//                 word_count: 28,
-//                 innerdomain_redirect: true,
-//                 login_required: false,
-//                 has_image: PocketItemHas::No,
-//                 has_video: PocketItemHas::No,
-//                 is_index: true,
-//                 is_article: false,
-//                 used_fallback: true,
-//                 lang: Some("".to_string()),
-//                 time_first_parsed: None,
-//                 authors: Some(vec![]),
-//                 images: Some(vec![]),
-//                 videos: Some(vec![]),
-//                 resolved_normal_url: "http://example.com".into_url().ok(),
-//                 given_url: "https://example.com".into_url().unwrap(),
-//             },
-//             status: 1,
-//         };
-//         let response = r#"
-//             {
-//                 "item": {
-//                     "item_id": "2763821",
-//                     "normal_url": "http://example.com",
-//                     "resolved_id": "2763821",
-//                     "extended_item_id": "2763821",
-//                     "resolved_url": "https://example.com",
-//                     "domain_id": "85964",
-//                     "origin_domain_id": "51347065",
-//                     "response_code": "200",
-//                     "mime_type": "text/html",
-//                     "content_length": "648",
-//                     "encoding": "utf-8",
-//                     "date_resolved": "2020-03-03 12:20:37",
-//                     "date_published": "0000-00-00 00:00:00",
-//                     "title": "Example Domain",
-//                     "excerpt": "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...",
-//                     "word_count": "28",
-//                     "innerdomain_redirect": "1",
-//                     "login_required": "0",
-//                     "has_image": "0",
-//                     "has_video": "0",
-//                     "is_index": "1",
-//                     "is_article": "0",
-//                     "used_fallback": "1",
-//                     "lang": "",
-//                     "time_first_parsed": "0",
-//                     "authors": [],
-//                     "images": [],
-//                     "videos": [],
-//                     "resolved_normal_url": "http://example.com",
-//                     "given_url": "https://example.com"
-//                 },
-//                 "status": 1
-//             }
-//        "#;
+    // PocketAddResponse
+    #[test]
+    fn test_deserialize_add_response_resolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 2763821,
+                normal_url: Url::parse("http://example.com").unwrap(),
+                resolved_id: 2763821,
+                extended_item_id: 2763821,
+                resolved_url: Url::parse("https://example.com").ok(),
+                domain_id: 85964,
+                origin_domain_id: 51347065,
+                response_code: 200,
+                mime_type: "text/html".parse().ok(),
+                content_length: 648,
+                encoding: "utf-8".to_string(),
+                date_resolved: Utc.datetime_from_str("2020-03-03 12:20:37", FORMAT).ok(),
+                date_published: None,
+                title: "Example Domain".to_string(),
+                excerpt: "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...".to_string(),
+                word_count: 28,
+                innerdomain_redirect: true,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: true,
+                is_article: false,
+                used_fallback: true,
+                lang: Some("".to_string()),
+                time_first_parsed: None,
+                authors: Some(vec![]),
+                images: Some(vec![]),
+                videos: Some(vec![]),
+                resolved_normal_url: Url::parse("http://example.com").ok(),
+                given_url: Url::parse("https://example.com").unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
+            {
+                "item": {
+                    "item_id": "2763821",
+                    "normal_url": "http://example.com",
+                    "resolved_id": "2763821",
+                    "extended_item_id": "2763821",
+                    "resolved_url": "https://example.com",
+                    "domain_id": "85964",
+                    "origin_domain_id": "51347065",
+                    "response_code": "200",
+                    "mime_type": "text/html",
+                    "content_length": "648",
+                    "encoding": "utf-8",
+                    "date_resolved": "2020-03-03 12:20:37",
+                    "date_published": "0000-00-00 00:00:00",
+                    "title": "Example Domain",
+                    "excerpt": "This domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission. More information...",
+                    "word_count": "28",
+                    "innerdomain_redirect": "1",
+                    "login_required": "0",
+                    "has_image": "0",
+                    "has_video": "0",
+                    "is_index": "1",
+                    "is_article": "0",
+                    "used_fallback": "1",
+                    "lang": "",
+                    "time_first_parsed": "0",
+                    "authors": [],
+                    "images": [],
+                    "videos": [],
+                    "resolved_normal_url": "http://example.com",
+                    "given_url": "https://example.com"
+                },
+                "status": 1
+            }
+       "#;
 
-//         let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     #[test]
-//     fn test_deserialize_add_response_unresolved_url() {
-//         let expected = PocketAddResponse {
-//             item: PocketAddedItem {
-//                 item_id: 1933886793,
-//                 normal_url: "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
-//                     .into_url()
-//                     .unwrap(),
-//                 resolved_id: 0,
-//                 extended_item_id: 0,
-//                 resolved_url: None,
-//                 domain_id: 0,
-//                 origin_domain_id: 0,
-//                 response_code: 0,
-//                 mime_type: None,
-//                 content_length: 0,
-//                 encoding: "".to_string(),
-//                 date_resolved: None,
-//                 date_published: None,
-//                 title: "".to_string(),
-//                 excerpt: "".to_string(),
-//                 word_count: 0,
-//                 innerdomain_redirect: false,
-//                 login_required: false,
-//                 has_image: PocketItemHas::No,
-//                 has_video: PocketItemHas::No,
-//                 is_index: false,
-//                 is_article: false,
-//                 used_fallback: false,
-//                 lang: None,
-//                 time_first_parsed: None,
-//                 authors: None,
-//                 images: None,
-//                 videos: None,
-//                 resolved_normal_url: None,
-//                 given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
-//                     .into_url()
-//                     .unwrap(),
-//             },
-//             status: 1,
-//         };
-//         let response = r#"
-//             {
-//                 "item": {
-//                     "item_id": "1933886793",
-//                     "normal_url": "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com",
-//                     "resolved_id": "0",
-//                     "extended_item_id": "0",
-//                     "resolved_url": "",
-//                     "domain_id": "0",
-//                     "origin_domain_id": "0",
-//                     "response_code": "0",
-//                     "mime_type": "",
-//                     "content_length": "0",
-//                     "encoding": "",
-//                     "date_resolved": "0000-00-00 00:00:00",
-//                     "date_published": "0000-00-00 00:00:00",
-//                     "title": "",
-//                     "excerpt": "",
-//                     "word_count": "0",
-//                     "innerdomain_redirect": "0",
-//                     "login_required": "0",
-//                     "has_image": "0",
-//                     "has_video": "0",
-//                     "is_index": "0",
-//                     "is_article": "0",
-//                     "used_fallback": "0",
-//                     "lang": null,
-//                     "time_first_parsed": null,
-//                     "given_url": "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
-//                 },
-//                 "status": 1
-//             }
-//        "#;
+    #[test]
+    fn test_deserialize_add_response_unresolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 1933886793,
+                normal_url: Url::parse("http://dc7ad3b2-942e-41c5-9154-a1b545752102.com")
+                    .unwrap(),
+                resolved_id: 0,
+                extended_item_id: 0,
+                resolved_url: None,
+                domain_id: 0,
+                origin_domain_id: 0,
+                response_code: 0,
+                mime_type: None,
+                content_length: 0,
+                encoding: "".to_string(),
+                date_resolved: None,
+                date_published: None,
+                title: "".to_string(),
+                excerpt: "".to_string(),
+                word_count: 0,
+                innerdomain_redirect: false,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: false,
+                is_article: false,
+                used_fallback: false,
+                lang: None,
+                time_first_parsed: None,
+                authors: None,
+                images: None,
+                videos: None,
+                resolved_normal_url: None,
+                given_url: Url::parse("https://dc7ad3b2-942e-41c5-9154-a1b545752102.com")
+                    .unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
+            {
+                "item": {
+                    "item_id": "1933886793",
+                    "normal_url": "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com",
+                    "resolved_id": "0",
+                    "extended_item_id": "0",
+                    "resolved_url": "",
+                    "domain_id": "0",
+                    "origin_domain_id": "0",
+                    "response_code": "0",
+                    "mime_type": "",
+                    "content_length": "0",
+                    "encoding": "",
+                    "date_resolved": "0000-00-00 00:00:00",
+                    "date_published": "0000-00-00 00:00:00",
+                    "title": "",
+                    "excerpt": "",
+                    "word_count": "0",
+                    "innerdomain_redirect": "0",
+                    "login_required": "0",
+                    "has_image": "0",
+                    "has_video": "0",
+                    "is_index": "0",
+                    "is_article": "0",
+                    "used_fallback": "0",
+                    "lang": null,
+                    "time_first_parsed": null,
+                    "given_url": "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
+                },
+                "status": 1
+            }
+       "#;
 
-//         let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     // PocketGetResponse
-//     #[test]
-//     fn test_deserialize_get_response_with_list_map() {
-//         let expected = PocketGetResponse {
-//             list: vec![],
-//             status: 1,
-//             complete: true,
-//             error: None,
-//             search_meta: PocketSearchMeta {
-//                 search_type: "normal".to_string(),
-//             },
-//             since: Utc.timestamp(1584221353, 0),
-//         };
-//         let response = remove_whitespace(&format!(
-//             r#"
-//                     {{
-//                         "status": {status},
-//                         "complete": {complete},
-//                         "list": {{}},
-//                         "error": null,
-//                         "search_meta": {{
-//                             "search_type": "{search_type}"
-//                         }},
-//                         "since": {since}
-//                     }}
-//                "#,
-//             status = expected.status,
-//             complete = if expected.complete { 1 } else { 0 },
-//             search_type = expected.search_meta.search_type,
-//             since = expected.since.timestamp(),
-//         ));
+    // PocketGetResponse
+    #[test]
+    fn test_deserialize_get_response_with_list_map() {
+        let expected = PocketGetResponse {
+            list: vec![],
+            status: 1,
+            complete: true,
+            error: None,
+            search_meta: PocketSearchMeta {
+                search_type: "normal".to_string(),
+            },
+            since: Utc.timestamp(1584221353, 0),
+        };
+        let response = remove_whitespace(&format!(
+            r#"
+                    {{
+                        "status": {status},
+                        "complete": {complete},
+                        "list": {{}},
+                        "error": null,
+                        "search_meta": {{
+                            "search_type": "{search_type}"
+                        }},
+                        "since": {since}
+                    }}
+               "#,
+            status = expected.status,
+            complete = if expected.complete { 1 } else { 0 },
+            search_type = expected.search_meta.search_type,
+            since = expected.since.timestamp(),
+        ));
 
-//         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     #[test]
-//     fn test_deserialize_get_response_with_list_array() {
-//         let expected = PocketGetResponse {
-//             list: vec![],
-//             status: 2,
-//             complete: true,
-//             error: None,
-//             search_meta: PocketSearchMeta {
-//                 search_type: "normal".to_string(),
-//             },
-//             since: Utc.timestamp(1584221353, 0),
-//         };
-//         let response = remove_whitespace(&format!(
-//             r#"
-//                 {{
-//                     "status": {status},
-//                     "complete": {complete},
-//                     "list": [],
-//                     "error": null,
-//                     "search_meta": {{
-//                         "search_type": "{search_type}"
-//                     }},
-//                     "since": {since}
-//                 }}
-//            "#,
-//             status = expected.status,
-//             complete = if expected.complete { 1 } else { 0 },
-//             search_type = expected.search_meta.search_type,
-//             since = expected.since.timestamp(),
-//         ));
+    #[test]
+    fn test_deserialize_get_response_with_list_array() {
+        let expected = PocketGetResponse {
+            list: vec![],
+            status: 2,
+            complete: true,
+            error: None,
+            search_meta: PocketSearchMeta {
+                search_type: "normal".to_string(),
+            },
+            since: Utc.timestamp(1584221353, 0),
+        };
+        let response = remove_whitespace(&format!(
+            r#"
+                {{
+                    "status": {status},
+                    "complete": {complete},
+                    "list": [],
+                    "error": null,
+                    "search_meta": {{
+                        "search_type": "{search_type}"
+                    }},
+                    "since": {since}
+                }}
+           "#,
+            status = expected.status,
+            complete = if expected.complete { 1 } else { 0 },
+            search_type = expected.search_meta.search_type,
+            since = expected.since.timestamp(),
+        ));
 
-//         let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketGetResponse = serde_json::from_str(&response).unwrap();
 
-//         assert_eq!(actual, expected);
-//     }
+        assert_eq!(actual, expected);
+    }
 
-//     // PocketItemStatus
-//     // PocketItem
-// }
+    // PocketItemStatus
+    // PocketItem
+}
