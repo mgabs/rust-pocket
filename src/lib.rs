@@ -3,7 +3,7 @@ use hyper::client::{Client, HttpConnector};
 use hyper::Body;
 use hyper::Request;
 use hyper::Uri;
-use hyper::{error::Error as HttpError, http::uri::InvalidUri, Method};
+use hyper::{http::uri::InvalidUri, Method};
 use hyper_tls::HttpsConnector;
 use mime::Mime;
 use serde::de::{DeserializeOwned, Unexpected};
@@ -12,64 +12,14 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::convert::{From, TryFrom};
-use std::error::Error;
 use std::fmt::Display;
-use std::io::Error as IoError;
 use std::result::Result;
 use std::str::FromStr;
 use url::Url;
 
-#[derive(Debug)]
-pub enum PocketError {
-    Http(HttpError),
-    Json(serde_json::Error),
-    Proto(u16, String),
-    Io(IoError),
-}
+pub mod errors;
 
 pub type PocketResult<T> = Result<T, PocketError>;
-
-impl From<serde_json::Error> for PocketError {
-    fn from(err: serde_json::Error) -> PocketError {
-        PocketError::Json(err)
-    }
-}
-
-impl From<IoError> for PocketError {
-    fn from(err: IoError) -> PocketError {
-        PocketError::Io(err)
-    }
-}
-
-impl From<HttpError> for PocketError {
-    fn from(err: HttpError) -> PocketError {
-        PocketError::Http(err)
-    }
-}
-
-impl Error for PocketError {
-    fn cause(&self) -> Option<&dyn Error> {
-        match *self {
-            PocketError::Http(ref e) => Some(e),
-            PocketError::Json(ref e) => Some(e),
-            PocketError::Proto(..) => None,
-            PocketError::Io(ref e) => Some(e),
-        }
-    }
-}
-
-impl std::fmt::Display for PocketError {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        match *self {
-            PocketError::Http(ref e) => e.fmt(fmt),
-            PocketError::Json(ref e) => e.fmt(fmt),
-            PocketError::Proto(ref code, ref msg) => {
-                fmt.write_str(&*format!("{} (code {})", msg, code))
-            }
-            PocketError::Io(ref e) => e.fmt(fmt),
-        }
-    }
-}
 
 const HEADER_XACCEPT: &str = "X-Accept";
 const HEADER_XERROR: &str = "X-Error";
@@ -678,6 +628,7 @@ struct PocketClient {
 
 use bytes::buf::BufExt as _;
 use futures::TryFutureExt;
+use errors::PocketError;
 
 impl PocketClient {
     fn new() -> PocketClient {
