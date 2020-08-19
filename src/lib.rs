@@ -1,20 +1,20 @@
 use chrono::{DateTime, TimeZone, Utc};
-use hyper::client::{Client, IntoUrl, RequestBuilder};
-use hyper::error::Error as HttpError;
-use hyper::header::parsing::from_one_raw_str;
-use hyper::header::{ContentType, Header, HeaderFormat};
-use hyper::mime::Mime;
-use hyper::net::HttpsConnector;
-use hyper_native_tls::NativeTlsClient;
+use hyper::client::{Client, HttpConnector};
+use hyper::Body;
+use hyper::Request;
+use hyper::Uri;
+use hyper::{error::Error as HttpError, http::uri::InvalidUri, Method};
+use hyper_tls::HttpsConnector;
+use mime::Mime;
 use serde::de::{DeserializeOwned, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::BTreeMap;
-use std::convert::From;
+use std::convert::TryInto;
+use std::convert::{From, TryFrom};
 use std::error::Error;
 use std::fmt::Display;
 use std::io::Error as IoError;
-use std::io::Read;
 use std::result::Result;
 use std::str::FromStr;
 use url::Url;
@@ -24,6 +24,7 @@ pub enum PocketError {
     Http(HttpError),
     Json(serde_json::Error),
     Proto(u16, String),
+    Io(IoError),
 }
 
 pub type PocketResult<T> = Result<T, PocketError>;
@@ -36,7 +37,7 @@ impl From<serde_json::Error> for PocketError {
 
 impl From<IoError> for PocketError {
     fn from(err: IoError) -> PocketError {
-        PocketError::Http(From::from(err))
+        PocketError::Io(err)
     }
 }
 
@@ -52,6 +53,7 @@ impl Error for PocketError {
             PocketError::Http(ref e) => Some(e),
             PocketError::Json(ref e) => Some(e),
             PocketError::Proto(..) => None,
+            PocketError::Io(ref e) => Some(e),
         }
     }
 }
@@ -64,78 +66,14 @@ impl std::fmt::Display for PocketError {
             PocketError::Proto(ref code, ref msg) => {
                 fmt.write_str(&*format!("{} (code {})", msg, code))
             }
+            PocketError::Io(ref e) => e.fmt(fmt),
         }
     }
 }
 
-#[derive(Clone, Debug)]
-struct XAccept(pub Mime);
-
-impl std::ops::Deref for XAccept {
-    type Target = Mime;
-    fn deref(&self) -> &Mime {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for XAccept {
-    fn deref_mut(&mut self) -> &mut Mime {
-        &mut self.0
-    }
-}
-
-impl Header for XAccept {
-    fn header_name() -> &'static str {
-        "X-Accept"
-    }
-
-    fn parse_header(raw: &[Vec<u8>]) -> Result<XAccept, HttpError> {
-        from_one_raw_str(raw).map(XAccept)
-    }
-}
-
-impl HeaderFormat for XAccept {
-    fn fmt_header(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, fmt)
-    }
-}
-
-#[derive(Clone, Debug)]
-struct XError(String);
-#[derive(Clone, Debug)]
-struct XErrorCode(u16);
-
-impl Header for XError {
-    fn header_name() -> &'static str {
-        "X-Error"
-    }
-
-    fn parse_header(raw: &[Vec<u8>]) -> Result<XError, HttpError> {
-        from_one_raw_str(raw).map(XError)
-    }
-}
-
-impl HeaderFormat for XError {
-    fn fmt_header(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, fmt)
-    }
-}
-
-impl Header for XErrorCode {
-    fn header_name() -> &'static str {
-        "X-Error-Code"
-    }
-
-    fn parse_header(raw: &[Vec<u8>]) -> Result<XErrorCode, HttpError> {
-        from_one_raw_str(raw).map(XErrorCode)
-    }
-}
-
-impl HeaderFormat for XErrorCode {
-    fn fmt_header(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, fmt)
-    }
-}
+const HEADER_XACCEPT: &str = "X-Accept";
+const HEADER_XERROR: &str = "X-Error";
+const HEADER_XERROR_CODE: &str = "X-Error-Code";
 
 #[derive(Serialize)]
 pub struct PocketOAuthRequest<'a> {
@@ -735,63 +673,71 @@ pub struct PocketSendResponse {
 }
 
 struct PocketClient {
-    client: Client,
+    client: Client<HttpsConnector<HttpConnector>>,
 }
+
+use bytes::buf::BufExt as _;
+use futures::TryFutureExt;
 
 impl PocketClient {
     fn new() -> PocketClient {
-        let ssl = NativeTlsClient::new().unwrap();
-        let connector = HttpsConnector::new(ssl);
+        let https = HttpsConnector::new();
+        let client = Client::builder().build::<_, hyper::Body>(https);
 
-        PocketClient {
-            client: Client::with_connector(connector),
-        }
+        PocketClient { client }
     }
 
-    fn get<T: IntoUrl, Resp: DeserializeOwned>(&self, url: T) -> PocketResult<Resp> {
-        let request = self.client.get(url);
-        self.request::<T, Resp>(request)
+    async fn get<T, Resp>(&self, url: T) -> PocketResult<Resp>
+    where
+        Uri: TryFrom<T>,
+        <Uri as TryFrom<T>>::Error: Into<hyper::http::Error>,
+        Resp: DeserializeOwned,
+    {
+        let request = Request::builder().uri(url).body(Body::empty()).unwrap();
+        self.request(request).await
     }
 
-    fn post<T: IntoUrl, B: Serialize, Resp: DeserializeOwned>(
-        &self,
-        url: T,
-        body: &B,
-    ) -> PocketResult<Resp> {
-        let app_json: Mime = "application/json".parse().unwrap();
-        let body = serde_json::to_string(body)?;
-        let request = self
-            .client
-            .post(url)
-            .body(&body)
-            .header(ContentType(app_json.clone()))
-            .header(XAccept(app_json));
+    async fn post<T, B, Resp>(&self, url: T, body: &B) -> PocketResult<Resp>
+    where
+        Uri: TryFrom<T>,
+        <Uri as TryFrom<T>>::Error: Into<hyper::http::Error>,
+        B: Serialize,
+        Resp: DeserializeOwned,
+    {
+        let app_json = "application/json";
+        let body = serde_json::to_string(body).map(Body::from)?;
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(url)
+            .header(hyper::header::CONTENT_TYPE, app_json)
+            .header(HEADER_XACCEPT, app_json)
+            .body(body)
+            .unwrap();
 
-        self.request::<T, Resp>(request)
+        self.request(request).await
     }
 
-    fn request<T: IntoUrl, Resp: DeserializeOwned>(
-        &self,
-        request: RequestBuilder,
-    ) -> PocketResult<Resp> {
-        request
-            .send()
+    async fn request<Resp: DeserializeOwned>(&self, request: Request<Body>) -> PocketResult<Resp> {
+        self.client
+            .request(request)
             .map_err(From::from)
-            .and_then(|mut r| match r.headers.get::<XErrorCode>().map(|v| v.0) {
-                None => {
-                    let mut out = String::new();
-                    r.read_to_string(&mut out).map_err(From::from).map(|_| out)
+            .and_then(|r| async move {
+                match r.headers().get(HEADER_XERROR_CODE) {
+                    None => {
+                        let body = hyper::body::aggregate(r).await?;
+                        serde_json::from_reader(body.reader()).map_err(From::from)
+                    }
+                    Some(code) => Err(PocketError::Proto(
+                        code.to_str().unwrap().parse().unwrap(),
+                        r.headers()
+                            .get(HEADER_XERROR)
+                            .map(|v| v.to_str().unwrap())
+                            .unwrap_or("unknown protocol error")
+                            .to_string(),
+                    )),
                 }
-                Some(code) => Err(PocketError::Proto(
-                    code,
-                    r.headers
-                        .get::<XError>()
-                        .map(|v| &*v.0)
-                        .unwrap_or("unknown protocol error")
-                        .to_string(),
-                )),
             })
-            .and_then(|s| serde_json::from_str(&*s).map_err(From::from))
+            .await
     }
 }
 
@@ -810,7 +756,7 @@ impl PocketAuthentication {
         }
     }
 
-    pub fn request(&self, state: Option<&str>) -> PocketResult<String> {
+    pub async fn request(&self, state: Option<&str>) -> PocketResult<String> {
         let body = &PocketOAuthRequest {
             consumer_key: &self.consumer_key,
             redirect_uri: &self.redirect_uri,
@@ -819,6 +765,7 @@ impl PocketAuthentication {
 
         self.client
             .post("https://getpocket.com/v3/oauth/request", &body)
+            .await
             .and_then(|r: PocketOAuthResponse| {
                 PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| r.code)
             })
@@ -842,7 +789,7 @@ impl PocketAuthentication {
         url
     }
 
-    pub fn authorize(&self, code: &str, state: Option<&str>) -> PocketResult<PocketUser> {
+    pub async fn authorize(&self, code: &str, state: Option<&str>) -> PocketResult<PocketUser> {
         let body = &PocketAuthorizeRequest {
             consumer_key: &self.consumer_key,
             code,
@@ -850,6 +797,7 @@ impl PocketAuthentication {
 
         self.client
             .post("https://getpocket.com/v3/oauth/authorize", &body)
+            .await
             .and_then(|r: PocketAuthorizeResponse| {
                 PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| PocketUser {
                     consumer_key: self.consumer_key.clone(),
@@ -893,7 +841,7 @@ impl Pocket {
         &self.access_token
     }
 
-    pub fn add(&self, request: &PocketAddRequest) -> PocketResult<PocketAddedItem> {
+    pub async fn add(&self, request: &PocketAddRequest<'_>) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
@@ -902,10 +850,11 @@ impl Pocket {
 
         self.client
             .post("https://getpocket.com/v3/add", &body)
-            .map(|v: PocketAddResponse| v.item)
+            .map_ok(|v: PocketAddResponse| v.item)
+            .await
     }
 
-    pub fn get(&self, request: &PocketGetRequest) -> PocketResult<Vec<PocketItem>> {
+    pub async fn get(&self, request: &PocketGetRequest<'_>) -> PocketResult<Vec<PocketItem>> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
@@ -914,10 +863,11 @@ impl Pocket {
 
         self.client
             .post("https://getpocket.com/v3/get", &body)
-            .map(|v: PocketGetResponse| v.list)
+            .map_ok(|v: PocketGetResponse| v.list)
+            .await
     }
 
-    pub fn send(&self, request: &PocketSendRequest) -> PocketResult<PocketSendResponse> {
+    pub async fn send(&self, request: &PocketSendRequest<'_>) -> PocketResult<PocketSendResponse> {
         let data = serde_json::to_string(request.actions)?;
         let params = &[
             ("consumer_key", &*self.consumer_key),
@@ -925,20 +875,18 @@ impl Pocket {
             ("actions", &data),
         ];
 
-        let mut url = "https://getpocket.com/v3/send".into_url().unwrap();
-        url.query_pairs_mut().extend_pairs(params.iter());
+        let url = Url::parse_with_params("https://getpocket.com/v3/send", params).unwrap();
 
-        self.client.get(url)
-    }
-
-    #[inline]
-    pub fn push<T: IntoUrl>(&self, url: T) -> PocketResult<PocketAddedItem> {
-        self.add(&PocketAddRequest::new(&url.into_url().unwrap()))
+        self.client.get(url_to_uri(&url).unwrap()).await
     }
 
     pub fn filter(&self) -> PocketGetRequest {
         PocketGetRequest::new()
     }
+}
+
+fn url_to_uri(url: &Url) -> Result<Uri, InvalidUri> {
+    url.as_str().try_into()
 }
 
 fn option_from_str<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -1375,7 +1323,7 @@ mod test {
     fn test_deserialize_item_image() {
         let expected = ItemImage {
             item_id: 1,
-            src: "http://localhost".into_url().ok(),
+            src: Url::parse("http://localhost").ok(),
             width: 3,
             height: 4,
         };
@@ -1408,7 +1356,7 @@ mod test {
     fn test_serialize_add_request() {
         let tags = &["tags"];
         let request = &PocketAddRequest {
-            url: &"http://localhost".into_url().unwrap(),
+            url: &Url::parse("http://localhost").unwrap(),
             title: Some("title"),
             tags: Some(tags),
             tweet_id: Some("tweet_id"),
@@ -1442,10 +1390,10 @@ mod test {
         let expected = PocketAddResponse {
             item: PocketAddedItem {
                 item_id: 2763821,
-                normal_url: "http://example.com".into_url().unwrap(),
+                normal_url: Url::parse("http://example.com").unwrap(),
                 resolved_id: 2763821,
                 extended_item_id: 2763821,
-                resolved_url: "https://example.com".into_url().ok(),
+                resolved_url: Url::parse("https://example.com").ok(),
                 domain_id: 85964,
                 origin_domain_id: 51347065,
                 response_code: 200,
@@ -1469,8 +1417,8 @@ mod test {
                 authors: Some(vec![]),
                 images: Some(vec![]),
                 videos: Some(vec![]),
-                resolved_normal_url: "http://example.com".into_url().ok(),
-                given_url: "https://example.com".into_url().unwrap(),
+                resolved_normal_url: Url::parse("http://example.com").ok(),
+                given_url: Url::parse("https://example.com").unwrap(),
             },
             status: 1,
         };
@@ -1522,9 +1470,7 @@ mod test {
         let expected = PocketAddResponse {
             item: PocketAddedItem {
                 item_id: 1933886793,
-                normal_url: "http://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
-                    .into_url()
-                    .unwrap(),
+                normal_url: Url::parse("http://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
                 resolved_id: 0,
                 extended_item_id: 0,
                 resolved_url: None,
@@ -1552,9 +1498,7 @@ mod test {
                 images: None,
                 videos: None,
                 resolved_normal_url: None,
-                given_url: "https://dc7ad3b2-942e-41c5-9154-a1b545752102.com"
-                    .into_url()
-                    .unwrap(),
+                given_url: Url::parse("https://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
             },
             status: 1,
         };

@@ -16,19 +16,13 @@ The OAuth workflow is implemented with a pair of methods in this
 implementation:
 
 ```rust
-extern crate pocket;
+let auth = PocketAuthentication::new("YOUR-CONSUMER-KEY-HERE", "rustapi:finishauth");
+let state = None;
+let code = auth.request(state).await?;
+println!("Follow auth URL to provide access and press enter when finished: {}", auth.authorize_url(&code));
+let _ = std::io::stdin().read_line(&mut String::new());
 
-use pocket::Pocket;
-
-fn authenticate() {
-  let auth = PocketAuthentication::new("YOUR-CONSUMER-KEY-HERE", "rustapi:finishauth");
-  let state = None;
-  let code = auth.request(state).unwrap();
-  println!("Follow auth URL to provide access and press enter when finished: {}", auth.authorize_url(code));
-  let _ = io::stdin().read_line(&mut String::new());
-  
-  let user = auth.authorize(code, state).unwrap;
-}
+let user = auth.authorize(&code, state).await?;
 ```
 
 So you
@@ -56,22 +50,18 @@ let pocket = Pocket::new("YOUR-CONSUMER-KEY-HERE", "YOUR-STORED-ACCESS-TOKEN");
 A `Pocket` instance allows you to add, modify and retrieve items to and
 from your pocket.
 
-To add an item, use the `Pocket::add()`, `Pocket::push()`, or
+To add an item, use the `Pocket::add()` or
 `Pocket::send()` method:
 
 ```rust
-// Quick add by URL only
-let added_item = pocket.push("http://example.com").unwrap();
-
 // Add with all meta-info provided (title, tags, tweet id)
 let added_item = pocket.add(&PocketAddRequest::new(&url)
     .title("Example title")
     .tags(&["example-tag"])
-    .tweet_id("example_tweet_id")).unwrap();
+    .tweet_id("example_tweet_id"))
+    .await?;
 
 // Add with one or more actions
-use hyper::client::IntoUrl;
-
 let added_item = pocket.send(&PocketSendRequest { 
     actions: &[
         &PocketSendAction::Add {
@@ -80,28 +70,26 @@ let added_item = pocket.send(&PocketSendRequest {
             tags: Some("example-tag".to_string()),
             time: None,
             title: Some("Example title".to_string()), 
-            url: Some("https://example.com".into_url().unwrap()), 
+            url: Url::parse("https://example.com").ok(), 
         }
     ]
-};
+}).await?;
 ```
 
 To query your pocket, use `Pocket::filter()` and `Pocket::get()`
 methods:
 
 ```rust
-let items = {
-    let mut f = pocket.filter();
-    f.complete(); // complete data
-    f.archived(); // archived items only
-    f.videos();   // videos only
-    f.offset(10); // items 10-20
-    f.count(10);
-    f.sort_by_title(); // sorted by title
-    // There are other methods, see `PocketGetRequest` struct for details
+let mut f = pocket.filter();
+f.complete(); // complete data
+f.archived(); // archived items only
+f.videos();   // videos only
+f.offset(10); // items 10-20
+f.count(10);
+f.sort_by_title(); // sorted by title
+// There are more methods, see `PocketGetRequest` struct for details
 
-    pocket.get(&f); // get items
-};
+let items = pocket.get(&f).await; // get items
 ```
 
 To modify one or multiple items or tags at a time, use `Pocket::send()`
@@ -114,7 +102,7 @@ let results = pocket.send(&PocketSendRequest {
         &PocketSendAction::TagsAdd { item_id, tags: "one,two".to_string(), time: None },
         &PocketSendAction::TagRename { old_tag: "one".to_string(), new_tag: "1".to_string(), time: None },
     ]
-})
+}).await?;
 ```
 
 ## License

@@ -10,13 +10,17 @@ edition = "2018"
 
 [dependencies]
 chrono = "0.4"
-hyper = "0.10.16"
-hyper-native-tls = "0.3.0"
+hyper = "0.13.7"
+hyper-tls = "0.4.3"
 url = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_derive = "1.0"
 url_serde = "0.2.0"
+mime = "0.3.16"
+bytes = "0.5.6"
+futures = "0.3.5"
+tokio = { version = "0.2.22", features = ["macros"] }
 
 [dev-dependencies]
 log = "0.3.5"
