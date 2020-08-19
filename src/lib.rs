@@ -696,14 +696,13 @@ impl PocketClient {
         Resp: DeserializeOwned
     {
         let request = Request::builder()
-            .method(Method::GET)
             .uri(url)
             .body(Body::empty())
             .unwrap();
         self.request(request).await
     }
 
-    fn post<T, B, Resp>(
+    async fn post<T, B, Resp>(
         &self,
         url: T,
         body: &B,
@@ -714,18 +713,17 @@ impl PocketClient {
         B: Serialize, 
         Resp: DeserializeOwned
     {
-        todo!();
-        // let app_json: Mime = "application/json".parse().unwrap();
-        // let body = serde_json::to_string(body)?;
-        // let request = Request::builder()
-        //     .method(Method::POST)
-        //     .uri(url.try_into().unwrap().as_str())
-        //     .header(hyper::header::CONTENT_TYPE, app_json.clone())
-        //     .header(HEADER_XACCEPT, app_json)
-        //     .body(&body)
-        //     .unwrap();
+        let app_json = "application/json";
+        let body = serde_json::to_string(body).map(Body::from)?;
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri(url)
+            .header(hyper::header::CONTENT_TYPE, app_json)
+            .header(HEADER_XACCEPT, app_json)
+            .body(body)
+            .unwrap();
 
-        // self.request::<T, Resp>(request)
+        self.request(request).await
     }
 
     async fn request<Resp: DeserializeOwned>(
@@ -770,19 +768,19 @@ impl PocketAuthentication {
         }
     }
 
-    pub fn request(&self, state: Option<&str>) -> PocketResult<String> {
+    pub async fn request(&self, state: Option<&str>) -> PocketResult<String> {
         let body = &PocketOAuthRequest {
             consumer_key: &self.consumer_key,
             redirect_uri: &self.redirect_uri,
             state,
         };
 
-        todo!();
-        // self.client
-        //     .post("https://getpocket.com/v3/oauth/request", &body)
-        //     .and_then(|r: PocketOAuthResponse| {
-        //         PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| r.code)
-        //     })
+        self.client
+            .post("https://getpocket.com/v3/oauth/request", &body)
+            .await
+            .and_then(|r: PocketOAuthResponse| {
+                PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| r.code)
+            })
     }
 
     fn verify_state(request_state: Option<&str>, response_state: Option<&str>) -> PocketResult<()> {
@@ -803,22 +801,22 @@ impl PocketAuthentication {
         url
     }
 
-    pub fn authorize(&self, code: &str, state: Option<&str>) -> PocketResult<PocketUser> {
+    pub async fn authorize(&self, code: &str, state: Option<&str>) -> PocketResult<PocketUser> {
         let body = &PocketAuthorizeRequest {
             consumer_key: &self.consumer_key,
             code,
         };
 
-        todo!();
-        // self.client
-        //     .post("https://getpocket.com/v3/oauth/authorize", &body)
-        //     .and_then(|r: PocketAuthorizeResponse| {
-        //         PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| PocketUser {
-        //             consumer_key: self.consumer_key.clone(),
-        //             access_token: r.access_token,
-        //             username: r.username,
-        //         })
-        //     })
+        self.client
+            .post("https://getpocket.com/v3/oauth/authorize", &body)
+            .await
+            .and_then(|r: PocketAuthorizeResponse| {
+                PocketAuthentication::verify_state(state, r.state.as_deref()).map(|()| PocketUser {
+                    consumer_key: self.consumer_key.clone(),
+                    access_token: r.access_token,
+                    username: r.username,
+                })
+            })
     }
 }
 
