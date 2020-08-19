@@ -853,17 +853,17 @@ impl Pocket {
         &self.access_token
     }
 
-    pub fn add(&self, request: &PocketAddRequest) -> PocketResult<PocketAddedItem> {
+    pub async fn add<'a>(&self, request: &'a PocketAddRequest<'a>) -> PocketResult<PocketAddedItem> {
         let body = &PocketUserRequest {
             consumer_key: &*self.consumer_key,
             access_token: &*self.access_token,
             request,
         };
 
-        todo!();
-        // self.client
-        //     .post("https://getpocket.com/v3/add", &body)
-        //     .map(|v: PocketAddResponse| v.item)
+        self.client
+            .post("https://getpocket.com/v3/add", &body)
+            .map_ok(|v: PocketAddResponse| v.item)
+            .await
     }
 
     pub fn get(&self, request: &PocketGetRequest) -> PocketResult<Vec<PocketItem>> {
@@ -896,8 +896,8 @@ impl Pocket {
     }
 
     #[inline]
-    pub fn push<T: Into<Url>>(&self, url: T) -> PocketResult<PocketAddedItem> {
-        self.add(&PocketAddRequest::new(&url.into()))
+    pub async fn push<T: Into<Url>>(&self, url: T) -> PocketResult<PocketAddedItem> {
+        self.add(&PocketAddRequest::new(&url.into())).await
     }
 
     pub fn filter(&self) -> PocketGetRequest {
