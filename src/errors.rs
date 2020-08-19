@@ -1,6 +1,6 @@
+use hyper::error::Error as HttpError;
 use std::error::Error;
 use std::io::Error as IoError;
-use hyper::error::{Error as HttpError};
 
 #[derive(Debug)]
 pub enum PocketError {
@@ -9,7 +9,6 @@ pub enum PocketError {
     Proto(u16, String),
     Io(IoError),
 }
-
 
 impl From<serde_json::Error> for PocketError {
     fn from(err: serde_json::Error) -> PocketError {
