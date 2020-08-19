@@ -1,23 +1,23 @@
-use hyper::Body;
-use hyper::Uri;
-use std::convert::TryInto;
-use hyper::Request;
-use mime::Mime;
 use chrono::{DateTime, TimeZone, Utc};
-use hyper::client::{HttpConnector, Client};
-use hyper::{Method, error::Error as HttpError, http::uri::InvalidUri};
+use hyper::client::{Client, HttpConnector};
+use hyper::Body;
+use hyper::Request;
+use hyper::Uri;
+use hyper::{error::Error as HttpError, http::uri::InvalidUri, Method};
+use hyper_tls::HttpsConnector;
+use mime::Mime;
 use serde::de::{DeserializeOwned, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::BTreeMap;
-use std::convert::{TryFrom, From};
+use std::convert::TryInto;
+use std::convert::{From, TryFrom};
 use std::error::Error;
 use std::fmt::Display;
 use std::io::Error as IoError;
 use std::result::Result;
 use std::str::FromStr;
 use url::Url;
-use hyper_tls::HttpsConnector;
 
 #[derive(Debug)]
 pub enum PocketError {
@@ -684,34 +684,25 @@ impl PocketClient {
         let https = HttpsConnector::new();
         let client = Client::builder().build::<_, hyper::Body>(https);
 
-        PocketClient {
-            client,
-        }
+        PocketClient { client }
     }
 
-    async fn get<T, Resp>(&self, url: T) -> PocketResult<Resp> 
+    async fn get<T, Resp>(&self, url: T) -> PocketResult<Resp>
     where
         Uri: TryFrom<T>,
         <Uri as TryFrom<T>>::Error: Into<hyper::http::Error>,
-        Resp: DeserializeOwned
+        Resp: DeserializeOwned,
     {
-        let request = Request::builder()
-            .uri(url)
-            .body(Body::empty())
-            .unwrap();
+        let request = Request::builder().uri(url).body(Body::empty()).unwrap();
         self.request(request).await
     }
 
-    async fn post<T, B, Resp>(
-        &self,
-        url: T,
-        body: &B,
-    ) -> PocketResult<Resp> 
+    async fn post<T, B, Resp>(&self, url: T, body: &B) -> PocketResult<Resp>
     where
         Uri: TryFrom<T>,
         <Uri as TryFrom<T>>::Error: Into<hyper::http::Error>,
-        B: Serialize, 
-        Resp: DeserializeOwned
+        B: Serialize,
+        Resp: DeserializeOwned,
     {
         let app_json = "application/json";
         let body = serde_json::to_string(body).map(Body::from)?;
@@ -726,10 +717,7 @@ impl PocketClient {
         self.request(request).await
     }
 
-    async fn request<Resp: DeserializeOwned>(
-        &self,
-        request: Request<Body>,
-    ) -> PocketResult<Resp> {
+    async fn request<Resp: DeserializeOwned>(&self, request: Request<Body>) -> PocketResult<Resp> {
         self.client
             .request(request)
             .map_err(From::from)
@@ -887,10 +875,7 @@ impl Pocket {
             ("actions", &data),
         ];
 
-        let url = Url::parse_with_params(
-            "https://getpocket.com/v3/send",
-            params
-        ).unwrap();
+        let url = Url::parse_with_params("https://getpocket.com/v3/send", params).unwrap();
 
         self.client.get(url_to_uri(&url).unwrap()).await
     }
@@ -1485,8 +1470,7 @@ mod test {
         let expected = PocketAddResponse {
             item: PocketAddedItem {
                 item_id: 1933886793,
-                normal_url: Url::parse("http://dc7ad3b2-942e-41c5-9154-a1b545752102.com")
-                    .unwrap(),
+                normal_url: Url::parse("http://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
                 resolved_id: 0,
                 extended_item_id: 0,
                 resolved_url: None,
@@ -1514,8 +1498,7 @@ mod test {
                 images: None,
                 videos: None,
                 resolved_normal_url: None,
-                given_url: Url::parse("https://dc7ad3b2-942e-41c5-9154-a1b545752102.com")
-                    .unwrap(),
+                given_url: Url::parse("https://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
             },
             status: 1,
         };

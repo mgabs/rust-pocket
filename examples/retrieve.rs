@@ -1,10 +1,10 @@
 extern crate pocket;
 
-use std::error::Error;
 use pocket::{Pocket, PocketGetRequest};
+use std::error::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>>{
+async fn main() -> Result<(), Box<dyn Error>> {
     let pocket = Pocket::new(
         &std::env::var("POCKET_CONSUMER_KEY")?,
         &std::env::var("POCKET_ACCESS_TOKEN")?,

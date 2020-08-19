@@ -1,5 +1,5 @@
-use std::error::Error;
 use pocket::{Pocket, PocketAddRequest};
+use std::error::Error;
 use url::Url;
 
 #[tokio::main]
@@ -16,7 +16,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .title("Example title")
                 .tags(&["example-tag"])
                 .tweet_id("example_tweet_id"),
-        ).await?;
+        )
+        .await?;
     println!("item: {:?}", item);
     Ok(())
 }
