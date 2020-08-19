@@ -1,4 +1,5 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Utc};
+use headers::{HEADER_XACCEPT, HEADER_XERROR, HEADER_XERROR_CODE};
 use hyper::client::{Client, HttpConnector};
 use hyper::Body;
 use hyper::Request;
@@ -6,20 +7,17 @@ use hyper::Uri;
 use hyper::{http::uri::InvalidUri, Method};
 use hyper_tls::HttpsConnector;
 use mime::Mime;
-use serde::de::{DeserializeOwned, Unexpected};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
-use std::collections::BTreeMap;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serialization::*;
 use std::convert::TryInto;
 use std::convert::{From, TryFrom};
-use std::fmt::Display;
 use std::result::Result;
-use std::str::FromStr;
 use url::Url;
-use headers::{HEADER_XACCEPT, HEADER_XERROR, HEADER_XERROR_CODE};
 
 pub mod errors;
 mod headers;
+mod serialization;
 
 pub type PocketResult<T> = Result<T, PocketError>;
 
@@ -625,8 +623,8 @@ struct PocketClient {
 }
 
 use bytes::buf::BufExt as _;
-use futures::TryFutureExt;
 use errors::PocketError;
+use futures::TryFutureExt;
 
 impl PocketClient {
     fn new() -> PocketClient {
@@ -838,263 +836,10 @@ fn url_to_uri(url: &Url) -> Result<Uri, InvalidUri> {
     url.as_str().try_into()
 }
 
-fn option_from_str<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    T: FromStr,
-    T::Err: Display,
-    D: Deserializer<'de>,
-{
-    let result: Result<T, D::Error> = from_str(deserializer);
-    Ok(result.ok())
-}
-
-// https://github.com/serde-rs/json/issues/317
-fn from_str<'de, T, D>(deserializer: D) -> Result<T, D::Error>
-where
-    T: FromStr,
-    T::Err: Display,
-    D: Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    T::from_str(&s).map_err(serde::de::Error::custom)
-}
-
-fn optional_to_string<T, S>(x: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    T: ToString,
-    S: Serializer,
-{
-    match x {
-        Some(ref value) => to_string(value, serializer),
-        None => serializer.serialize_none(),
-    }
-}
-
-fn to_string<T, S>(x: &T, serializer: S) -> Result<S::Ok, S::Error>
-where
-    T: ToString,
-    S: Serializer,
-{
-    serializer.serialize_str(&x.to_string())
-}
-
-fn to_comma_delimited_string<S>(x: &Option<&[&str]>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match x {
-        Some(value) => serializer.serialize_str(&value.join(",")),
-        None => serializer.serialize_none(),
-    }
-}
-
-fn try_url_from_string<'de, D>(deserializer: D) -> Result<Option<Url>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let o: Option<String> = Option::deserialize(deserializer)?;
-    Ok(o.and_then(|s| Url::parse(&s).ok()))
-}
-
-fn optional_vec_from_map<'de, T, D>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
-where
-    T: DeserializeOwned + Clone + std::fmt::Debug,
-    D: Deserializer<'de>,
-{
-    let o: Option<Value> = Option::deserialize(deserializer)?;
-    match o {
-        Some(v) => json_value_to_vec::<T, D>(v).map(Some),
-        None => Ok(None),
-    }
-}
-
-fn vec_from_map<'de, T, D>(deserializer: D) -> Result<Vec<T>, D::Error>
-where
-    T: DeserializeOwned + Clone + std::fmt::Debug,
-    D: Deserializer<'de>,
-{
-    let value = Value::deserialize(deserializer)?;
-    json_value_to_vec::<T, D>(value)
-}
-
-fn json_value_to_vec<'de, T, D>(value: Value) -> Result<Vec<T>, D::Error>
-where
-    T: DeserializeOwned + Clone + std::fmt::Debug,
-    D: Deserializer<'de>,
-{
-    match value {
-        a @ Value::Array(..) => {
-            serde_json::from_value::<Vec<T>>(a).map_err(serde::de::Error::custom)
-        }
-        o @ Value::Object(..) => serde_json::from_value::<BTreeMap<String, T>>(o)
-            .map(map_to_vec)
-            .map_err(serde::de::Error::custom),
-        other => Err(serde::de::Error::invalid_value(
-            Unexpected::Other(format!("{:?}", other).as_str()),
-            &"object or array",
-        )),
-    }
-}
-
-fn map_to_vec<T>(map: BTreeMap<String, T>) -> Vec<T> {
-    map.into_iter().map(|(_, v)| v).collect::<Vec<_>>()
-}
-
-// https://github.com/serde-rs/serde/issues/1344
-fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    match u8::deserialize(deserializer)? {
-        0 => Ok(false),
-        1 => Ok(true),
-        other => Err(serde::de::Error::invalid_value(
-            Unexpected::Unsigned(other as u64),
-            &"zero or one",
-        )),
-    }
-}
-
-fn bool_from_int_string<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    match String::deserialize(deserializer)?.as_str() {
-        "0" => Ok(false),
-        "1" => Ok(true),
-        other => Err(serde::de::Error::invalid_value(
-            Unexpected::Str(other),
-            &"zero or one",
-        )),
-    }
-}
-
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn optional_bool_to_int<S>(x: &Option<bool>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match x {
-        Some(ref value) => bool_to_int(value, serializer),
-        None => serializer.serialize_none(),
-    }
-}
-
-fn optional_datetime_to_int<S>(x: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match x {
-        Some(ref value) => string_date_unix_timestamp_format::serialize(value, serializer),
-        None => serializer.serialize_none(),
-    }
-}
-
-fn untagged_to_str<S>(serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str("_untagged_")
-}
-
-fn option_mime_from_string<'de, D>(deserializer: D) -> Result<Option<Mime>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Option::deserialize(deserializer).and_then(|o: Option<String>| match o.as_deref() {
-        Some("") | None => Ok(None),
-        Some(str) => str.parse::<Mime>().map(Some).map_err(|other| {
-            serde::de::Error::invalid_value(
-                Unexpected::Other(format!("{:?}", other).as_str()),
-                &"valid mime type",
-            )
-        }),
-    })
-}
-
-fn int_date_unix_timestamp_format<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let unix_timestamp = i64::deserialize(deserializer)?;
-    Ok(Utc.timestamp(unix_timestamp, 0))
-}
-
-fn option_string_date_unix_timestamp_format<'de, D>(
-    deserializer: D,
-) -> Result<Option<DateTime<Utc>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Option::deserialize(deserializer).and_then(|o: Option<String>| match o.as_deref() {
-        Some("0") | None => Ok(None),
-        Some(str) => str
-            .parse::<i64>()
-            .map(|i| Some(Utc.timestamp(i, 0)))
-            .map_err(serde::de::Error::custom),
-    })
-}
-
-const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
-
-fn option_string_date_format<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    match String::deserialize(deserializer)?.as_str() {
-        "0000-00-00 00:00:00" => Ok(None),
-        str => Utc
-            .datetime_from_str(str, FORMAT)
-            .map_err(serde::de::Error::custom)
-            .map(Option::Some),
-    }
-}
-
-// inspired by https://serde.rs/custom-date-format.html
-mod string_date_unix_timestamp_format {
-    use chrono::{DateTime, TimeZone, Utc};
-    use serde::{self, Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&date.timestamp().to_string())
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        s.parse::<i64>()
-            .map(|i| Utc.timestamp(i, 0))
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn bool_to_int<S>(x: &bool, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let output = match x {
-        true => "1",
-        false => "0",
-    };
-    serializer.serialize_str(output)
-}
-
-fn borrow_url<S>(x: &Url, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(x.as_str())
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+    use chrono::TimeZone;
     use serde::Serialize;
 
     // Auth
