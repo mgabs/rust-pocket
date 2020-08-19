@@ -1,18 +1,18 @@
 extern crate hyper;
 extern crate pocket;
 
-use hyper::client::IntoUrl;
+use std::error::Error;
 use pocket::{Pocket, PocketSendAction, PocketSendRequest};
+use url::Url;
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let pocket = Pocket::new(
-        &std::env::var("POCKET_CONSUMER_KEY").unwrap(),
-        &std::env::var("POCKET_ACCESS_TOKEN").unwrap(),
+        &std::env::var("POCKET_CONSUMER_KEY")?,
+        &std::env::var("POCKET_ACCESS_TOKEN")?,
     );
-    let item_id = std::env::var("POCKET_ITEM_ID")
-        .unwrap()
-        .parse::<u64>()
-        .unwrap();
+    let item_id = std::env::var("POCKET_ITEM_ID")?
+        .parse::<u64>()?;
 
     let results = pocket
         .send(&PocketSendRequest {
@@ -23,7 +23,7 @@ fn main() {
                     tags: Some("example-tag".to_string()),
                     time: None,
                     title: Some("Example title".to_string()),
-                    url: Some("https://example.com".into_url().unwrap()),
+                    url: Some(Url::parse("https://example.com")?),
                 },
                 &PocketSendAction::Archive {
                     item_id,
@@ -40,7 +40,7 @@ fn main() {
                     time: None,
                 },
             ],
-        })
-        .unwrap();
+        }).await?;
     println!("results: {:?}", results);
+    Ok(())
 }

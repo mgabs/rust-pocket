@@ -5,7 +5,7 @@ use hyper::Request;
 use mime::Mime;
 use chrono::{DateTime, TimeZone, Utc};
 use hyper::client::{HttpConnector, Client};
-use hyper::{Method, error::Error as HttpError};
+use hyper::{Method, error::Error as HttpError, http::uri::InvalidUri};
 use serde::de::{DeserializeOwned, Unexpected};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -689,7 +689,7 @@ impl PocketClient {
         }
     }
 
-    fn get<T, Resp>(&self, url: T) -> PocketResult<Resp> 
+    async fn get<T, Resp>(&self, url: T) -> PocketResult<Resp> 
     where
         Uri: TryFrom<T>,
         <Uri as TryFrom<T>>::Error: Into<http::Error>,
@@ -700,8 +700,7 @@ impl PocketClient {
             .uri(url)
             .body(Body::empty())
             .unwrap();
-        todo!();
-        // self.request::<Resp>(request)
+        self.request(request).await
     }
 
     fn post<T, B, Resp>(
@@ -753,7 +752,6 @@ impl PocketClient {
                 }
             })
             .await
-            // .and_then(|s| serde_json::from_str(&*s).map_err(From::from))
     }
 }
 
@@ -883,7 +881,7 @@ impl Pocket {
         //     .map(|v: PocketGetResponse| v.list)
     }
 
-    pub fn send(&self, request: &PocketSendRequest) -> PocketResult<PocketSendResponse> {
+    pub async fn send<'a>(&self, request: &'a PocketSendRequest<'a>) -> PocketResult<PocketSendResponse> {
         let data = serde_json::to_string(request.actions)?;
         let params = &[
             ("consumer_key", &*self.consumer_key),
@@ -891,11 +889,12 @@ impl Pocket {
             ("actions", &data),
         ];
 
-        todo!();
-        // let mut url: Url = "https://getpocket.com/v3/send".into();
-        // url.query_pairs_mut().extend_pairs(params.iter());
+        let url = Url::parse_with_params(
+            "https://getpocket.com/v3/send",
+            params
+        ).unwrap();
 
-        // self.client.get(url)
+        self.client.get(url_to_uri(&url).unwrap()).await
     }
 
     #[inline]
@@ -906,6 +905,10 @@ impl Pocket {
     pub fn filter(&self) -> PocketGetRequest {
         PocketGetRequest::new()
     }
+}
+
+fn url_to_uri(url: &Url) -> Result<Uri, InvalidUri> {
+    url.as_str().try_into()
 }
 
 fn option_from_str<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
