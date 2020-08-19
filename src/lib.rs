@@ -16,14 +16,12 @@ use std::fmt::Display;
 use std::result::Result;
 use std::str::FromStr;
 use url::Url;
+use headers::{HEADER_XACCEPT, HEADER_XERROR, HEADER_XERROR_CODE};
 
 pub mod errors;
+mod headers;
 
 pub type PocketResult<T> = Result<T, PocketError>;
-
-const HEADER_XACCEPT: &str = "X-Accept";
-const HEADER_XERROR: &str = "X-Error";
-const HEADER_XERROR_CODE: &str = "X-Error-Code";
 
 #[derive(Serialize)]
 pub struct PocketOAuthRequest<'a> {
