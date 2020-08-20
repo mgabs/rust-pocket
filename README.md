@@ -1,4 +1,5 @@
 # rust-pocket
+[![Coverage Status](https://coveralls.io/repos/github/ozbe/rust-pocket/badge.svg?branch=master)](https://coveralls.io/github/ozbe/rust-pocket?branch=master)
 
 [Pocket API](http://getpocket.com/developer/docs/overview) bindings
 (http://getpocket.com)
