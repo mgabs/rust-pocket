@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use client::PocketClient;
 use errors::PocketError;
 use futures::TryFutureExt;
@@ -39,32 +38,6 @@ pub struct PocketImage {
     pub height: u16,
     pub credit: String,
     pub caption: String,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct ItemImage {
-    #[serde(deserialize_with = "from_str")]
-    pub item_id: u64,
-    #[serde(default, deserialize_with = "try_url_from_string")]
-    pub src: Option<Url>,
-    #[serde(deserialize_with = "from_str")]
-    pub width: u16,
-    #[serde(deserialize_with = "from_str")]
-    pub height: u16,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct DomainMetaData {
-    pub name: Option<String>,
-    pub logo: String,
-    pub greyscale_logo: String,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct ItemTag {
-    #[serde(deserialize_with = "from_str")]
-    pub item_id: u64,
-    pub tag: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
@@ -110,85 +83,8 @@ pub enum PocketItemHas {
 pub struct PocketUserRequest<'a, T> {
     consumer_key: &'a str,
     access_token: &'a str,
-
     #[serde(flatten)]
     request: T,
-}
-
-
-#[derive(Deserialize, Debug, PartialEq)]
-pub struct PocketSearchMeta {
-    search_type: String,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone, Copy)]
-pub enum PocketItemStatus {
-    #[serde(rename = "0")]
-    Normal,
-    #[serde(rename = "1")]
-    Archived,
-    #[serde(rename = "2")]
-    Deleted,
-}
-
-#[derive(Deserialize, Debug, PartialEq, Clone)]
-pub struct PocketItem {
-    #[serde(deserialize_with = "from_str")]
-    pub item_id: u64,
-
-    #[serde(default, deserialize_with = "try_url_from_string")]
-    pub given_url: Option<Url>,
-    pub given_title: String,
-
-    #[serde(deserialize_with = "from_str")]
-    pub word_count: usize,
-    pub excerpt: String,
-
-    #[serde(with = "string_date_unix_timestamp_format")]
-    pub time_added: DateTime<Utc>,
-    #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
-    pub time_read: Option<DateTime<Utc>>,
-    #[serde(with = "string_date_unix_timestamp_format")]
-    pub time_updated: DateTime<Utc>,
-    #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
-    pub time_favorited: Option<DateTime<Utc>>,
-
-    #[serde(deserialize_with = "bool_from_int_string")]
-    pub favorite: bool,
-
-    #[serde(deserialize_with = "bool_from_int_string")]
-    pub is_index: bool,
-    #[serde(deserialize_with = "bool_from_int_string")]
-    pub is_article: bool,
-    pub has_image: PocketItemHas,
-    pub has_video: PocketItemHas,
-
-    #[serde(deserialize_with = "from_str")]
-    pub resolved_id: u64,
-    pub resolved_title: String,
-    #[serde(default, deserialize_with = "try_url_from_string")]
-    pub resolved_url: Option<Url>,
-
-    pub sort_id: u64,
-
-    pub status: PocketItemStatus,
-    #[serde(default, deserialize_with = "optional_vec_from_map")]
-    pub tags: Option<Vec<ItemTag>>,
-    #[serde(default, deserialize_with = "optional_vec_from_map")]
-    pub images: Option<Vec<PocketImage>>,
-    #[serde(default, deserialize_with = "optional_vec_from_map")]
-    pub videos: Option<Vec<ItemVideo>>,
-    #[serde(default, deserialize_with = "optional_vec_from_map")]
-    pub authors: Option<Vec<ItemAuthor>>,
-    pub lang: String,
-    pub time_to_read: Option<u64>,
-    pub domain_metadata: Option<DomainMetaData>,
-    pub listen_duration_estimate: Option<u64>,
-    pub image: Option<ItemImage>,
-    #[serde(default, deserialize_with = "try_url_from_string")]
-    pub amp_url: Option<Url>,
-    #[serde(default, deserialize_with = "try_url_from_string")]
-    pub top_image_url: Option<Url>,
 }
 
 pub struct Pocket {
@@ -258,7 +154,6 @@ impl Pocket {
 fn url_to_uri(url: &Url) -> Result<Uri, InvalidUri> {
     url.as_str().try_into()
 }
-
 
 #[cfg(test)]
 mod test {
