@@ -38,6 +38,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     new_tag: "1".to_string(),
                     time: None,
                 },
+                &PocketSendAction::Add {
+                    item_id: None,
+                    ref_id: None,
+                    tags: None,
+                    time: None,
+                    title: None,
+                    url: None,
+                },
             ],
         })
         .await?;
