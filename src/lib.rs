@@ -1,24 +1,24 @@
+use add::*;
 use client::PocketClient;
 use errors::PocketError;
 use futures::TryFutureExt;
+use get::*;
 use hyper::http::uri::InvalidUri;
 use hyper::Uri;
+use send::*;
 use serde::{Deserialize, Serialize};
 use serialization::*;
 use std::convert::TryInto;
 use std::result::Result;
 use url::Url;
-use add::*;
-use send::*;
-use get::*;
 
 pub mod add;
 pub mod auth;
-pub mod get;
-pub mod send;
 mod client;
 pub mod errors;
+pub mod get;
 mod headers;
+pub mod send;
 mod serialization;
 mod utils;
 

@@ -1,7 +1,7 @@
-use url::Url;
+use crate::{serialization::*, ItemAuthor, ItemVideo, PocketImage, PocketItemHas};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::{PocketItemHas, serialization::*, PocketImage, ItemVideo, ItemAuthor};
+use url::Url;
 
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -285,8 +285,8 @@ pub struct ItemTag {
 #[cfg(test)]
 mod test {
     use super::*;
-    use chrono::TimeZone;
     use crate::utils::remove_whitespace;
+    use chrono::TimeZone;
 
     // Get
     // PocketGetRequest
@@ -424,4 +424,3 @@ mod test {
         assert_eq!(actual, expected);
     }
 }
-

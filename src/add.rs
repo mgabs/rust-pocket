@@ -1,9 +1,9 @@
+use crate::serialization::*;
+use crate::{ItemAuthor, ItemVideo, PocketImage, PocketItemHas};
 use chrono::{DateTime, Utc};
 use mime::Mime;
 use serde::{Deserialize, Serialize};
-use crate::serialization::*;
 use url::Url;
-use crate::{ItemVideo, PocketImage, ItemAuthor, PocketItemHas};
 
 #[derive(Serialize)]
 pub struct PocketAddRequest<'a> {
@@ -128,24 +128,24 @@ pub struct PocketAddResponse {
 #[cfg(test)]
 mod test {
     use super::*;
-    use chrono::TimeZone;
     use crate::utils::remove_whitespace;
-    
+    use chrono::TimeZone;
+
     // PocketAddRequest
-      #[test]
-      fn test_serialize_add_request() {
-          let tags = &["tags"];
-          let request = &PocketAddRequest {
-              url: &Url::parse("http://localhost").unwrap(),
-              title: Some("title"),
-              tags: Some(tags),
-              tweet_id: Some("tweet_id"),
-          };
-  
-          let actual = serde_json::to_string(request).unwrap();
-  
-          let expected = remove_whitespace(&format!(
-              r#"
+    #[test]
+    fn test_serialize_add_request() {
+        let tags = &["tags"];
+        let request = &PocketAddRequest {
+            url: &Url::parse("http://localhost").unwrap(),
+            title: Some("title"),
+            tags: Some(tags),
+            tweet_id: Some("tweet_id"),
+        };
+
+        let actual = serde_json::to_string(request).unwrap();
+
+        let expected = remove_whitespace(&format!(
+            r#"
                       {{
                           "url": "{url}",
                           "title": "{title}",
@@ -153,21 +153,21 @@ mod test {
                           "tweet_id": "{tweet_id}"
                       }}
                  "#,
-              url = request.url,
-              title = request.title.unwrap(),
-              tags = request.tags.unwrap().join(","),
-              tweet_id = request.tweet_id.unwrap(),
-          ));
-  
-          assert_eq!(actual, expected);
-      }
-  
-      // PocketAddedItem
-  
-      // PocketAddResponse
-      #[test]
-      fn test_deserialize_add_response_resolved_url() {
-          let expected = PocketAddResponse {
+            url = request.url,
+            title = request.title.unwrap(),
+            tags = request.tags.unwrap().join(","),
+            tweet_id = request.tweet_id.unwrap(),
+        ));
+
+        assert_eq!(actual, expected);
+    }
+
+    // PocketAddedItem
+
+    // PocketAddResponse
+    #[test]
+    fn test_deserialize_add_response_resolved_url() {
+        let expected = PocketAddResponse {
               item: PocketAddedItem {
                   item_id: 2763821,
                   normal_url: Url::parse("http://example.com").unwrap(),
@@ -202,7 +202,7 @@ mod test {
               },
               status: 1,
           };
-          let response = r#"
+        let response = r#"
               {
                   "item": {
                       "item_id": "2763821",
@@ -239,50 +239,50 @@ mod test {
                   "status": 1
               }
          "#;
-  
-          let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
-  
-          assert_eq!(actual, expected);
-      }
-  
-      #[test]
-      fn test_deserialize_add_response_unresolved_url() {
-          let expected = PocketAddResponse {
-              item: PocketAddedItem {
-                  item_id: 1933886793,
-                  normal_url: Url::parse("http://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
-                  resolved_id: 0,
-                  extended_item_id: 0,
-                  resolved_url: None,
-                  domain_id: 0,
-                  origin_domain_id: 0,
-                  response_code: 0,
-                  mime_type: None,
-                  content_length: 0,
-                  encoding: "".to_string(),
-                  date_resolved: None,
-                  date_published: None,
-                  title: "".to_string(),
-                  excerpt: "".to_string(),
-                  word_count: 0,
-                  innerdomain_redirect: false,
-                  login_required: false,
-                  has_image: PocketItemHas::No,
-                  has_video: PocketItemHas::No,
-                  is_index: false,
-                  is_article: false,
-                  used_fallback: false,
-                  lang: None,
-                  time_first_parsed: None,
-                  authors: None,
-                  images: None,
-                  videos: None,
-                  resolved_normal_url: None,
-                  given_url: Url::parse("https://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
-              },
-              status: 1,
-          };
-          let response = r#"
+
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_deserialize_add_response_unresolved_url() {
+        let expected = PocketAddResponse {
+            item: PocketAddedItem {
+                item_id: 1933886793,
+                normal_url: Url::parse("http://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
+                resolved_id: 0,
+                extended_item_id: 0,
+                resolved_url: None,
+                domain_id: 0,
+                origin_domain_id: 0,
+                response_code: 0,
+                mime_type: None,
+                content_length: 0,
+                encoding: "".to_string(),
+                date_resolved: None,
+                date_published: None,
+                title: "".to_string(),
+                excerpt: "".to_string(),
+                word_count: 0,
+                innerdomain_redirect: false,
+                login_required: false,
+                has_image: PocketItemHas::No,
+                has_video: PocketItemHas::No,
+                is_index: false,
+                is_article: false,
+                used_fallback: false,
+                lang: None,
+                time_first_parsed: None,
+                authors: None,
+                images: None,
+                videos: None,
+                resolved_normal_url: None,
+                given_url: Url::parse("https://dc7ad3b2-942e-41c5-9154-a1b545752102.com").unwrap(),
+            },
+            status: 1,
+        };
+        let response = r#"
               {
                   "item": {
                       "item_id": "1933886793",
@@ -315,9 +315,9 @@ mod test {
                   "status": 1
               }
          "#;
-  
-          let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
-  
-          assert_eq!(actual, expected);
-      }
+
+        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+
+        assert_eq!(actual, expected);
+    }
 }

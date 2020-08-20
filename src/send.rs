@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::serialization::*;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[derive(Serialize)]

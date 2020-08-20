@@ -1,7 +1,7 @@
-use crate::PocketResult;
-use crate::Pocket;
 use crate::client::PocketClient;
 use crate::errors::PocketError;
+use crate::Pocket;
+use crate::PocketResult;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -30,7 +30,6 @@ pub struct PocketAuthorizeResponse {
     username: String,
     state: Option<String>,
 }
-
 
 pub struct PocketAuthentication {
     consumer_key: String,
