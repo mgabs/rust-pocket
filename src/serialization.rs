@@ -273,12 +273,10 @@ where
     if bool::deserialize(deserializer)? {
         Ok(())
     } else {
-        Err(
-            serde::de::Error::invalid_value(
-                Unexpected::Bool(false),
-                &r#"true"#
-            )
-        )
+        Err(serde::de::Error::invalid_value(
+            Unexpected::Bool(false),
+            &r#"true"#,
+        ))
     }
 }
 
@@ -289,11 +287,9 @@ where
     if !bool::deserialize(deserializer)? {
         Ok(())
     } else {
-        Err(
-            serde::de::Error::invalid_value(
-                Unexpected::Bool(false),
-                &r#"false"#
-            )
-        )
+        Err(serde::de::Error::invalid_value(
+            Unexpected::Bool(false),
+            &r#"false"#,
+        ))
     }
 }

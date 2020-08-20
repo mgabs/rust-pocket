@@ -126,10 +126,7 @@ mod test {
     fn test_deserialize_send_response() {
         let expected = PocketSendResponse {
             status: 1,
-            action_results: vec![
-                SendActionResult::Success,
-                SendActionResult::Failure,
-            ],
+            action_results: vec![SendActionResult::Success, SendActionResult::Failure],
             action_errors: vec![
                 None,
                 Some(SendActionError {
