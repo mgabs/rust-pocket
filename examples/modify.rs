@@ -1,7 +1,7 @@
 extern crate hyper;
 extern crate pocket;
 
-use pocket::{Pocket, PocketSendAction, PocketSendRequest};
+use pocket::{Pocket, send::PocketSendAction, send::PocketSendRequest};
 use std::error::Error;
 use url::Url;
 

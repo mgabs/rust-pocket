@@ -1,4 +1,4 @@
-use pocket::{Pocket, PocketAddRequest};
+use pocket::{Pocket, add::PocketAddRequest};
 use std::error::Error;
 use url::Url;
 
