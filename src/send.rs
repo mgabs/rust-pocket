@@ -101,7 +101,10 @@ pub struct PocketSendResponse {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum SendActionResult {
-    Result(bool),
+    #[serde(deserialize_with = "true_to_unit_variant")]
+    Success,
+    #[serde(deserialize_with = "false_to_unit_variant")]
+    Failure,
     Add(Box<PocketAddedItem>),
 }
 
@@ -124,8 +127,8 @@ mod test {
         let expected = PocketSendResponse {
             status: 1,
             action_results: vec![
-                SendActionResult::Result(true),
-                SendActionResult::Result(false),
+                SendActionResult::Success,
+                SendActionResult::Failure,
             ],
             action_errors: vec![
                 None,

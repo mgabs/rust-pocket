@@ -265,3 +265,35 @@ where
 {
     serializer.serialize_str(x.as_str())
 }
+
+pub fn true_to_unit_variant<'de, D>(deserializer: D) -> Result<(), D::Error>
+where
+    D: Deserializer<'de>,
+{
+    if bool::deserialize(deserializer)? {
+        Ok(())
+    } else {
+        Err(
+            serde::de::Error::invalid_value(
+                Unexpected::Bool(false),
+                &r#"true"#
+            )
+        )
+    }
+}
+
+pub fn false_to_unit_variant<'de, D>(deserializer: D) -> Result<(), D::Error>
+where
+    D: Deserializer<'de>,
+{
+    if !bool::deserialize(deserializer)? {
+        Ok(())
+    } else {
+        Err(
+            serde::de::Error::invalid_value(
+                Unexpected::Bool(false),
+                &r#"false"#
+            )
+        )
+    }
+}
