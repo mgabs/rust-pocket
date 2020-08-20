@@ -1,4 +1,4 @@
-use pocket::PocketAuthentication;
+use pocket::auth::PocketAuthentication;
 use std::error::Error;
 use std::io;
 use std::time::Instant;

@@ -1,6 +1,6 @@
 extern crate pocket;
 
-use pocket::{Pocket, PocketGetRequest};
+use pocket::{get::PocketGetRequest, Pocket};
 use std::error::Error;
 
 #[tokio::main]
