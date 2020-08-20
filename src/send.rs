@@ -102,7 +102,7 @@ pub struct PocketSendResponse {
 #[serde(untagged)]
 pub enum SendActionResult {
     Result(bool),
-    Add(PocketAddedItem),
+    Add(Box<PocketAddedItem>),
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -117,7 +117,7 @@ pub struct SendActionError {
 mod test {
     use super::*;
     use crate::PocketItemHas;
-    use chrono::{Utc, TimeZone};
+    use chrono::{TimeZone, Utc};
 
     #[test]
     fn test_deserialize_send_response() {
@@ -165,7 +165,7 @@ mod test {
             status: 1,
             action_results: vec![
                 SendActionResult::Add(
-                    PocketAddedItem {
+                    Box::new(PocketAddedItem {
                         item_id: 1502819,
                         normal_url: Url::parse("http://example.com").unwrap(),
                         resolved_id: 1502819,
@@ -196,7 +196,7 @@ mod test {
                         videos: Some(vec![]),
                         resolved_normal_url: Url::parse("http://example.com").ok(),
                         given_url: Url::parse("https://example.com/").unwrap(),
-                    }
+                    })
                 ),
             ],
             action_errors: vec![None],
