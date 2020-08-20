@@ -94,7 +94,8 @@ pub enum PocketSendAction {
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct PocketSendResponse {
     pub status: u16,
-    pub action_results: Vec<SendActionResult>, // TODO - action_errors []
+    pub action_results: Vec<SendActionResult>,
+    pub action_errors: Vec<Option<SendActionError>>,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -102,6 +103,14 @@ pub struct PocketSendResponse {
 pub enum SendActionResult {
     Result(bool),
     Add(PocketAddedItem),
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+pub struct SendActionError {
+    code: u16,
+    message: String,
+    #[serde(rename = "type")]
+    error_type: String,
 }
 
 #[cfg(test)]
@@ -118,6 +127,14 @@ mod test {
                 SendActionResult::Result(true),
                 SendActionResult::Result(false),
             ],
+            action_errors: vec![
+                None,
+                Some(SendActionError {
+                    code: 422,
+                    message: "Invalid/non-existent URL".to_string(),
+                    error_type: "Unprocessable Entity".to_string(),
+                }),
+            ],
         };
         let response = r#"
             {
@@ -126,7 +143,12 @@ mod test {
                     false
                 ],
                 "action_errors":[
-                    null
+                    null,
+                    {
+                        "code": 422,
+                        "message": "Invalid/non-existent URL",
+                        "type": "Unprocessable Entity"
+                    }
                 ],
                 "status":1
             }
@@ -177,6 +199,7 @@ mod test {
                     }
                 ),
             ],
+            action_errors: vec![None],
         };
         let response = r#"
             {
