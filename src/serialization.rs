@@ -1,12 +1,11 @@
 use chrono::{DateTime, TimeZone, Utc};
 use mime::Mime;
-use serde::de::{DeserializeOwned, Unexpected};
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::{
+    de::{DeserializeOwned, Unexpected},
+    Deserialize, Deserializer, Serializer,
+};
 use serde_json::Value;
-use std::collections::BTreeMap;
-use std::fmt::Display;
-use std::result::Result;
-use std::str::FromStr;
+use std::{collections::BTreeMap, fmt::Display, result::Result, str::FromStr};
 use url::Url;
 
 pub fn option_from_str<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -150,7 +149,22 @@ where
         None => serializer.serialize_none(),
     }
 }
-
+pub fn bool_from_optional_str<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match String::deserialize(deserializer)?
+        .parse()
+        .expect("failed to parse bool input")
+    {
+        0 => Ok(false),
+        1 => Ok(true),
+        other => Err(serde::de::Error::invalid_value(
+            Unexpected::Unsigned(other as u64),
+            &"zero or one",
+        )),
+    }
+}
 pub fn optional_datetime_to_int<S>(
     x: &Option<DateTime<Utc>>,
     serializer: S,

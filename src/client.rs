@@ -1,16 +1,16 @@
-use crate::errors::PocketError;
-use crate::headers::{HEADER_XACCEPT, HEADER_XERROR, HEADER_XERROR_CODE};
-use crate::PocketResult;
+use crate::{
+    errors::PocketError,
+    headers::{HEADER_XACCEPT, HEADER_XERROR, HEADER_XERROR_CODE},
+    PocketResult,
+};
 use bytes::buf::BufExt as _;
 use futures::TryFutureExt;
-use hyper::client::{Client, HttpConnector};
-use hyper::Body;
-use hyper::Method;
-use hyper::Request;
-use hyper::Uri;
+use hyper::{
+    client::{Client, HttpConnector},
+    Body, Method, Request, Uri,
+};
 use hyper_tls::HttpsConnector;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use std::convert::{From, TryFrom};
 
 pub struct PocketClient {

@@ -154,7 +154,7 @@ mod test {
             }
         "#;
 
-        let actual: PocketSendResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketSendResponse = serde_json::from_str(response).unwrap();
 
         assert_eq!(actual, expected);
     }
@@ -231,13 +231,13 @@ mod test {
                     "lang":"",
                     "time_first_parsed":"0",
                     "authors":[
-            
+
                     ],
                     "images":[
-            
+
                     ],
                     "videos":[
-            
+
                     ],
                     "resolved_normal_url":"http://example.com",
                     "given_url":"https://example.com/"
@@ -250,7 +250,7 @@ mod test {
             }
         "#;
 
-        let actual: PocketSendResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketSendResponse = serde_json::from_str(response).unwrap();
 
         assert_eq!(actual, expected);
     }

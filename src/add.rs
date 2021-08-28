@@ -1,5 +1,4 @@
-use crate::serialization::*;
-use crate::{ItemAuthor, ItemVideo, PocketImage, PocketItemHas};
+use crate::{serialization::*, ItemAuthor, ItemVideo, PocketImage, PocketItemHas};
 use chrono::{DateTime, Utc};
 use mime::Mime;
 use serde::{Deserialize, Serialize};
@@ -240,7 +239,7 @@ mod test {
               }
          "#;
 
-        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketAddResponse = serde_json::from_str(response).unwrap();
 
         assert_eq!(actual, expected);
     }
@@ -316,7 +315,7 @@ mod test {
               }
          "#;
 
-        let actual: PocketAddResponse = serde_json::from_str(&response).unwrap();
+        let actual: PocketAddResponse = serde_json::from_str(response).unwrap();
 
         assert_eq!(actual, expected);
     }

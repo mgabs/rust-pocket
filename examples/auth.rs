@@ -1,7 +1,5 @@
 use pocket::auth::PocketAuthentication;
-use std::error::Error;
-use std::io;
-use std::time::Instant;
+use std::{error::Error, io, time::Instant};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

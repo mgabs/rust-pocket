@@ -1,7 +1,4 @@
-use crate::client::PocketClient;
-use crate::errors::PocketError;
-use crate::Pocket;
-use crate::PocketResult;
+use crate::{client::PocketClient, errors::PocketError, Pocket, PocketResult};
 use serde::{Deserialize, Serialize};
 use url::Url;
 

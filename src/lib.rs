@@ -3,13 +3,11 @@ use client::PocketClient;
 use errors::PocketError;
 use futures::TryFutureExt;
 use get::*;
-use hyper::http::uri::InvalidUri;
-use hyper::Uri;
+use hyper::{http::uri::InvalidUri, Uri};
 use send::*;
 use serde::{Deserialize, Serialize};
 use serialization::*;
-use std::convert::TryInto;
-use std::result::Result;
+use std::{convert::TryInto, result::Result};
 use url::Url;
 
 pub mod add;

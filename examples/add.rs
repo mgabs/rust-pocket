@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let url = Url::parse("https://example.com")?;
     let item = pocket
         .add(
-            &PocketAddRequest::new(&url)
+            PocketAddRequest::new(&url)
                 .title("Example title")
                 .tags(&["example-tag"])
                 .tweet_id("example_tweet_id"),

@@ -198,9 +198,10 @@ pub struct PocketItem {
     #[serde(default, deserialize_with = "try_url_from_string")]
     pub given_url: Option<Url>,
     pub given_title: String,
-    #[serde(deserialize_with = "from_str")]
-    pub word_count: usize,
-    pub excerpt: String,
+    #[serde(default)]
+    pub word_count: Option<String>,
+    #[serde(default)]
+    pub excerpt: Option<String>,
     #[serde(with = "string_date_unix_timestamp_format")]
     pub time_added: DateTime<Utc>,
     #[serde(deserialize_with = "option_string_date_unix_timestamp_format")]
@@ -211,15 +212,17 @@ pub struct PocketItem {
     pub time_favorited: Option<DateTime<Utc>>,
     #[serde(deserialize_with = "bool_from_int_string")]
     pub favorite: bool,
-    #[serde(deserialize_with = "bool_from_int_string")]
+    #[serde(default, deserialize_with = "bool_from_optional_str")]
     pub is_index: bool,
-    #[serde(deserialize_with = "bool_from_int_string")]
+    #[serde(default, deserialize_with = "bool_from_optional_str")]
     pub is_article: bool,
-    pub has_image: PocketItemHas,
-    pub has_video: PocketItemHas,
+    #[serde(default)]
+    pub has_image: Option<PocketItemHas>,
+    #[serde(default)]
+    pub has_video: Option<PocketItemHas>,
     #[serde(deserialize_with = "from_str")]
     pub resolved_id: u64,
-    pub resolved_title: String,
+    pub resolved_title: Option<String>,
     #[serde(default, deserialize_with = "try_url_from_string")]
     pub resolved_url: Option<Url>,
     pub sort_id: u64,
@@ -232,7 +235,7 @@ pub struct PocketItem {
     pub videos: Option<Vec<ItemVideo>>,
     #[serde(default, deserialize_with = "optional_vec_from_map")]
     pub authors: Option<Vec<ItemAuthor>>,
-    pub lang: String,
+    pub lang: Option<String>,
     pub time_to_read: Option<u64>,
     pub domain_metadata: Option<DomainMetaData>,
     pub listen_duration_estimate: Option<u64>,
